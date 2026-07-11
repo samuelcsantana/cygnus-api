@@ -17,7 +17,11 @@ export async function scheduleDailyReminderJob(): Promise<void> {
     {},
     {
       jobId: DAILY_REMINDER_JOB_ID,
-      repeat: { pattern: '0 8 * * *' },
+      // `immediately` runs the sweep once as soon as the repeatable job is
+      // first registered, instead of only ever firing at the next 08:00
+      // cron tick — otherwise a server that never stays up past 08:00
+      // (e.g. local dev) never generates a single notification.
+      repeat: { pattern: '0 8 * * *', immediately: true },
     },
   );
 }
