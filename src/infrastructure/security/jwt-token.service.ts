@@ -35,4 +35,18 @@ export class JwtTokenService implements TokenService {
       throw new InvalidTokenError();
     }
   }
+
+  verifyRefreshToken(token: string): AccessTokenPayload {
+    try {
+      const payload = jwt.verify(token, this.refreshSecret);
+
+      if (typeof payload === 'string' || payload.type !== 'refresh' || typeof payload.sub !== 'string') {
+        throw new InvalidTokenError();
+      }
+
+      return { sub: payload.sub };
+    } catch {
+      throw new InvalidTokenError();
+    }
+  }
 }

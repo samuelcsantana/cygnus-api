@@ -27,6 +27,7 @@ function buildTokenService(overrides: Partial<TokenService> = {}): TokenService 
   return {
     generateTokenPair: vi.fn().mockReturnValue({ accessToken: 'access-token', refreshToken: 'refresh-token' }),
     verifyAccessToken: vi.fn(),
+    verifyRefreshToken: vi.fn(),
     ...overrides,
   };
 }

@@ -20,6 +20,15 @@ export const loginBodySchema = z.object({
   password: z.string().min(1),
 });
 
+export const currentUserResponseSchema = z
+  .object({
+    id: z.string().uuid(),
+    email: z.string().email(),
+    name: z.string(),
+    createdAt: z.string().datetime(),
+  })
+  .describe('The authenticated user account');
+
 export const authSuccessResponseSchema = z
   .object({
     status: z.literal('ok'),

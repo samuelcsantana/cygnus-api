@@ -2,8 +2,10 @@ import type { FastifyReply } from 'fastify';
 import type { App } from '../../../infrastructure/http/build-app';
 import { RegisterUserUseCase } from '../../../application/user/register-user.use-case';
 import { AuthenticateUserUseCase } from '../../../application/user/authenticate-user.use-case';
+import { RefreshUserSessionUseCase } from '../../../application/user/refresh-user-session.use-case';
 import { EmailAlreadyInUseError } from '../../../application/user/errors/email-already-in-use.error';
 import { InvalidCredentialsError } from '../../../application/user/errors/invalid-credentials.error';
+import { InvalidTokenError } from '../../../application/user/errors/invalid-token.error';
 import { DomainError } from '../../../shared/errors/domain-error';
 import { PrismaUserRepository } from '../../../infrastructure/database/repositories/prisma-user.repository';
 import { BcryptPasswordHasher } from '../../../infrastructure/security/bcrypt-password-hasher';
@@ -11,9 +13,11 @@ import { tokenService } from '../../../infrastructure/security/token-service.ins
 import { prisma } from '../../../infrastructure/database/prisma-client';
 import { env } from '../../../shared/config/env';
 import { parseDurationToSeconds } from '../../../shared/utils/parse-duration';
+import { authenticate } from '../plugins/authenticate';
 import {
   authErrorResponseSchema,
   authSuccessResponseSchema,
+  currentUserResponseSchema,
   loginBodySchema,
   registerBodySchema,
   registerResponseSchema,
@@ -51,6 +55,7 @@ export async function authRoutes(app: App) {
   const passwordHasher = new BcryptPasswordHasher();
   const registerUserUseCase = new RegisterUserUseCase(userRepository, passwordHasher);
   const authenticateUserUseCase = new AuthenticateUserUseCase(userRepository, passwordHasher, tokenService);
+  const refreshUserSessionUseCase = new RefreshUserSessionUseCase(userRepository, tokenService);
 
   app.route({
     method: 'POST',
@@ -125,6 +130,76 @@ export async function authRoutes(app: App) {
 
         throw error;
       }
+    },
+  });
+
+  app.route({
+    method: 'POST',
+    url: '/auth/refresh',
+    schema: {
+      tags: ['Auth'],
+      summary: "Rotate the authenticated user's session",
+      description:
+        'Reads the refresh_token cookie, validates it, and — if still valid and the user still exists — issues a new access/refresh token pair as HTTP-only cookies. Returns 401 if the cookie is missing, expired, or invalid, which the frontend should treat as a hard session expiry and redirect to /login.',
+      response: {
+        200: authSuccessResponseSchema,
+        401: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      const refreshToken = request.cookies[REFRESH_TOKEN_COOKIE];
+
+      if (!refreshToken) {
+        return reply.status(401).send({ status: 'error', message: 'Authentication required' });
+      }
+
+      try {
+        const { accessToken, refreshToken: newRefreshToken } = await refreshUserSessionUseCase.execute(refreshToken);
+
+        setAuthCookies(reply, accessToken, newRefreshToken);
+
+        request.log.info('auth.refresh_succeeded');
+
+        return reply.status(200).send({ status: 'ok', message: 'Session refreshed successfully' });
+      } catch (error) {
+        if (error instanceof InvalidTokenError) {
+          clearAuthCookies(reply);
+          return reply.status(401).send({ status: 'error', message: error.message });
+        }
+
+        throw error;
+      }
+    },
+  });
+
+  app.route({
+    method: 'GET',
+    url: '/auth/me',
+    preHandler: authenticate,
+    schema: {
+      tags: ['Auth'],
+      summary: 'Get the authenticated user',
+      description: "Returns the currently authenticated user's profile, resolved from the access_token cookie.",
+      response: {
+        200: currentUserResponseSchema,
+        401: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      const user = await userRepository.findById(request.userId);
+
+      if (!user) {
+        return reply.status(401).send({ status: 'error', message: 'Authentication required' });
+      }
+
+      return reply.status(200).send({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        createdAt: user.createdAt.toISOString(),
+      });
     },
   });
 

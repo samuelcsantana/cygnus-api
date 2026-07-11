@@ -25,6 +25,27 @@ describe('Auth routes', () => {
     return values.map((cookie) => cookie.split('=')[0]);
   }
 
+  function extractCookieHeader(setCookieHeader: string | string[] | undefined): string {
+    const values = Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : [];
+    return values.map((cookie) => cookie.split(';')[0]).join('; ');
+  }
+
+  async function registerAndLogin(email: string): Promise<string> {
+    await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: { email, password: 'S3cur3-Password', name: 'Jane Doe' },
+    });
+
+    const loginResponse = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { email, password: 'S3cur3-Password' },
+    });
+
+    return extractCookieHeader(loginResponse.headers['set-cookie']);
+  }
+
   describe('POST /auth/register', () => {
     it('creates a new user and never returns the password hash', async () => {
       const response = await app.inject({
@@ -128,13 +149,71 @@ describe('Auth routes', () => {
     });
   });
 
+  describe('POST /auth/refresh', () => {
+    it('rotates the session and sets new HTTP-only cookies from a valid refresh token', async () => {
+      const cookie = await registerAndLogin('refresh@example.com');
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/auth/refresh',
+        headers: { cookie },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ status: 'ok', message: 'Session refreshed successfully' });
+
+      const cookieNames = extractCookieNames(response.headers['set-cookie']);
+      expect(cookieNames).toEqual(expect.arrayContaining(['access_token', 'refresh_token']));
+    });
+
+    it('rejects a request without a refresh_token cookie with 401', async () => {
+      const response = await app.inject({ method: 'POST', url: '/auth/refresh' });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json().status).toBe('error');
+    });
+
+    it('rejects a garbage refresh_token cookie with 401', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/auth/refresh',
+        headers: { cookie: 'refresh_token=not-a-real-token' },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json().status).toBe('error');
+    });
+  });
+
+  describe('GET /auth/me', () => {
+    it("returns the authenticated user's profile", async () => {
+      const cookie = await registerAndLogin('me@example.com');
+
+      const response = await app.inject({ method: 'GET', url: '/auth/me', headers: { cookie } });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ email: 'me@example.com', name: 'Jane Doe' });
+      expect(response.json().passwordHash).toBeUndefined();
+    });
+
+    it('rejects a request without an access_token cookie with 401', async () => {
+      const response = await app.inject({ method: 'GET', url: '/auth/me' });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json().status).toBe('error');
+    });
+  });
+
   it('exposes all auth routes in the generated OpenAPI document', async () => {
     const response = await app.inject({ method: 'GET', url: '/docs/json' });
     const openApiDocument = response.json();
 
-    for (const path of ['/auth/register', '/auth/login', '/auth/logout']) {
+    for (const path of ['/auth/register', '/auth/login', '/auth/logout', '/auth/refresh']) {
       expect(openApiDocument.paths[path]).toBeDefined();
       expect(openApiDocument.paths[path].post.tags).toContain('Auth');
     }
+
+    expect(openApiDocument.paths['/auth/me']).toBeDefined();
+    expect(openApiDocument.paths['/auth/me'].get.tags).toContain('Auth');
   });
 });
