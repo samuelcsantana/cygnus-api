@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Table with no business meaning — created solely to validate that the
+/// Docker/Postgres/Prisma migration pipeline works end to end.
+model InfrastructureCheck {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  note      String?
+
+  @@map("infrastructure_checks")
+}
