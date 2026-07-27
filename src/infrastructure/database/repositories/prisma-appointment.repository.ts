@@ -1,0 +1,68 @@
+import { PrismaClient } from '@prisma/client';
+import { AppointmentRepository } from '../../../application/appointment/appointment-repository';
+import { Appointment, AppointmentStatus } from '../../../domain/appointment/appointment';
+
+interface AppointmentRow {
+  id: string;
+  babyId: string;
+  scheduledAt: Date;
+  doctorName: string;
+  location: string | null;
+  reason: string | null;
+  notes: string | null;
+  status: string;
+  createdAt: Date;
+}
+
+function toDomain(row: AppointmentRow): Appointment {
+  return Appointment.restore({
+    id: row.id,
+    babyId: row.babyId,
+    scheduledAt: row.scheduledAt,
+    doctorName: row.doctorName,
+    location: row.location,
+    reason: row.reason,
+    notes: row.notes,
+    status: row.status as AppointmentStatus,
+    createdAt: row.createdAt,
+  });
+}
+
+export class PrismaAppointmentRepository implements AppointmentRepository {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async findById(id: string): Promise<Appointment | null> {
+    const row = await this.prisma.appointment.findUnique({ where: { id } });
+    return row ? toDomain(row) : null;
+  }
+
+  async findAllByBabyId(babyId: string): Promise<Appointment[]> {
+    const rows = await this.prisma.appointment.findMany({ where: { babyId }, orderBy: { scheduledAt: 'asc' } });
+    return rows.map(toDomain);
+  }
+
+  async save(appointment: Appointment): Promise<void> {
+    await this.prisma.appointment.upsert({
+      where: { id: appointment.id },
+      create: {
+        id: appointment.id,
+        babyId: appointment.babyId,
+        scheduledAt: appointment.scheduledAt,
+        doctorName: appointment.doctorName,
+        location: appointment.location,
+        reason: appointment.reason,
+        notes: appointment.notes,
+        status: appointment.status,
+        createdAt: appointment.createdAt,
+      },
+      update: {
+        scheduledAt: appointment.scheduledAt,
+        doctorName: appointment.doctorName,
+        location: appointment.location,
+        reason: appointment.reason,
+        notes: appointment.notes,
+        status: appointment.status,
+      },
+    });
+  }
+}

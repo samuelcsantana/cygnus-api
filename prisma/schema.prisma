@@ -35,6 +35,7 @@ model Baby {
   avatarUrl      String?             @map("avatar_url")
   createdAt      DateTime            @default(now()) @map("created_at")
   vaccineRecords BabyVaccineRecord[]
+  appointments   Appointment[]
 
   @@index([userId])
   @@map("babies")
@@ -72,4 +73,26 @@ model BabyVaccineRecord {
 
   @@unique([babyId, vaccineId])
   @@map("baby_vaccine_records")
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model Appointment {
+  id          String            @id @default(uuid())
+  babyId      String            @map("baby_id")
+  baby        Baby              @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  scheduledAt DateTime          @map("scheduled_at")
+  doctorName  String            @map("doctor_name")
+  location    String?
+  reason      String?
+  notes       String?
+  status      AppointmentStatus @default(SCHEDULED)
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@index([babyId])
+  @@map("appointments")
 }
