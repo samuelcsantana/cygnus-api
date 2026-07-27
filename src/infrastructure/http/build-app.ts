@@ -19,6 +19,7 @@ import { babyRoutes } from '../../presentation/http/routes/baby.routes';
 import { vaccineRoutes } from '../../presentation/http/routes/vaccine.routes';
 import { appointmentRoutes } from '../../presentation/http/routes/appointment.routes';
 import { milestoneRoutes } from '../../presentation/http/routes/milestone.routes';
+import { notificationRoutes } from '../../presentation/http/routes/notification.routes';
 
 export async function buildApp() {
   const app = fastify({ loggerInstance: logger }).withTypeProvider<ZodTypeProvider>();
@@ -55,6 +56,7 @@ export async function buildApp() {
         { name: 'Vaccines', description: 'Vaccination tracking' },
         { name: 'Appointments', description: 'Medical appointment scheduling' },
         { name: 'Milestones', description: 'Developmental milestone tracking' },
+        { name: 'Notifications', description: 'In-app alerts for delayed vaccines and upcoming appointments' },
       ],
     },
     transform: jsonSchemaTransform,
@@ -68,6 +70,7 @@ export async function buildApp() {
   await app.register(vaccineRoutes);
   await app.register(appointmentRoutes);
   await app.register(milestoneRoutes);
+  await app.register(notificationRoutes);
 
   return app;
 }
