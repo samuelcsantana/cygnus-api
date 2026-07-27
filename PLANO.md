@@ -227,12 +227,60 @@ Fase 1, para não conviver com tabelas de negócio.
 
 ---
 
+## Fase 6 — Redis: Cache + Lembretes em Background ✅ (concluída)
+
+### 6.1 Cache do catálogo de vacinas
+- [x] Cliente Redis compartilhado (`ioredis`) e abstração `CacheClient`
+      (interface mínima `get`/`set`, para permitir mocks em teste sem
+      depender de um Redis real).
+- [x] `CachedVaccineRepository` (decorator sobre `PrismaVaccineRepository`):
+      cacheia `findAll()` com TTL de 1h, sem invalidação manual (catálogo
+      quase não muda). `findById()` não é cacheado.
+- [x] Testes unitários (mock de `CacheClient`) e um teste de integração
+      contra Redis + Postgres reais, provando que dados ficam "obsoletos"
+      dentro do TTL até o cache ser limpo.
+
+### 6.2 Fila de lembretes (Notifications)
+- [x] Entidade `Notification` (id, userId, babyId, type
+      [`VACCINE_DELAYED`, `APPOINTMENT_UPCOMING`], referenceId, title,
+      message, readAt, createdAt). Migration com `@@unique([babyId, type,
+      referenceId])` para nunca notificar o mesmo gatilho duas vezes.
+- [x] `BabyRepository.findAll()` adicionado (o job varre todos os bebês do
+      sistema, não só os de um usuário).
+- [x] `GenerateReminderNotificationsUseCase`: reaproveita
+      `BabyVaccineRecord.derive` para detectar vacinas atrasadas e cria
+      notificação para consultas agendadas dentro de uma janela de 3 dias.
+      Deduplicação via `NotificationRepository.existsForTrigger`.
+- [x] `ListUserNotificationsUseCase`, `MarkNotificationAsReadUseCase`.
+- [x] Fila BullMQ (`reminders`) com job repetível diário (cron `0 8 * * *`),
+      processado por um worker que roda no mesmo processo da API
+      (`main.ts`), com conexão Redis dedicada (workers do BullMQ usam
+      comandos bloqueantes, por isso não compartilham a conexão do cache).
+      O worker usa os repositórios Prisma diretos (não o cache), para que a
+      varredura diária sempre veja os dados mais recentes.
+- [x] Rotas `GET /notifications` e `PATCH /notifications/:notificationId/read`,
+      protegidas pelo guard JWT, tag `Notifications` no Swagger. **Sem envio
+      externo de e-mail/push** — não há provedor (Resend/FCM) configurado
+      ainda; a notificação é hoje só um alerta in-app consumido via API.
+
+### 6.3 Fechamento
+- [x] 137 testes (unitários + integração) passando, sem regressão nos
+      módulos anteriores. Build (`tsc`) validado.
+- [x] Verificação manual ponta a ponta: job disparado manualmente,
+      processado pelo worker real contra Redis/Postgres do
+      `docker-compose.yml`.
+- [x] Commits semânticos atômicos: `feat(cache)`, `feat(domain)`,
+      `feat(notification)` (migration, use cases, rotas), `feat(queue)`.
+
+---
+
 ## Fases Futuras (fora do escopo imediato, não iniciar sem alinhamento)
 
-- Redis para cache/jobs em background (lembretes, notificações).
+- Envio real de lembretes por e-mail/push (Resend, FCM ou similar) —
+  hoje as notificações são só in-app.
 - Testes de integração ponta a ponta contra banco Dockerizado
   (Supertest + Vitest) — já parcialmente coberto pela suíte atual, que roda
-  contra o Postgres do `docker-compose.yml`.
+  contra o Postgres e o Redis do `docker-compose.yml`.
 
 ---
 
