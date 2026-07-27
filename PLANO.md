@@ -73,32 +73,37 @@ Fase 1, para não conviver com tabelas de negócio.
 
 ---
 
-## Fase 2 — Perfil do Bebê (`Baby`)
+## Fase 2 — Perfil do Bebê (`Baby`) ✅ (concluída)
 
 ### 2.1 Domain
-- [ ] Entidade `Baby` (id, userId, name, birthDate, gender, bloodType,
+- [x] Entidade `Baby` (id, userId, name, birthDate, gender, bloodType,
       allergies, avatarUrl, createdAt).
-- [ ] Regra de domínio: `birthDate` não pode ser data futura (validação na
+- [x] Regra de domínio: `birthDate` não pode ser data futura (validação na
       criação da entidade, com erro `FutureBirthDateError`).
 
 ### 2.2 Infrastructure
-- [ ] Migration Prisma: relação 1:N `User` → `Baby` (um usuário pode ter
+- [x] Migration Prisma: relação 1:N `User` → `Baby` (um usuário pode ter
       múltiplos bebês).
-- [ ] `BabyRepository` (interface + implementação Prisma).
+- [x] `BabyRepository` (interface + implementação Prisma).
 
 ### 2.3 Application
-- [ ] `CreateBabyUseCase`, `ListUserBabiesUseCase`, `GetBabyByIdUseCase`,
+- [x] `CreateBabyUseCase`, `ListUserBabiesUseCase`, `GetBabyByIdUseCase`,
       `UpdateBabyUseCase`.
-- [ ] Testes unitários cobrindo isolamento entre usuários: usuário A não pode
-      ler/alterar bebê de usuário B (autorização a nível de use case).
+- [x] Testes unitários cobrindo isolamento entre usuários: usuário A não pode
+      ler/alterar bebê de usuário B (`BabyNotFoundError` uniforme em vez de
+      403, para não vazar a existência do recurso — mitigação OWASP BOLA).
 
 ### 2.4 Presentation
-- [ ] CRUD protegido pelo guard de autenticação JWT criado na Fase 1.
-- [ ] Documentação Swagger completa na tag `Babies`.
+- [x] CRUD protegido pelo guard de autenticação JWT criado na Fase 1
+      (`authenticate`).
+- [x] Documentação Swagger completa na tag `Babies`.
 
 ### 2.5 Fechamento
-- [ ] Testes unitários + integração, sem regressão no módulo Auth.
-- [ ] Commit semântico atômico.
+- [x] 30 testes (unitários + integração) passando, sem regressão no módulo
+      Auth. Corrigido um problema de paralelismo do Vitest entre arquivos de
+      integração que compartilham o mesmo banco Postgres.
+- [x] Commits semânticos atômicos: `feat(domain)`, `feat(baby)` (migration,
+      use cases, rotas), `fix(tests)`.
 
 ---
 
