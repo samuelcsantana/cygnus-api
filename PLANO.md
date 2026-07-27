@@ -151,13 +151,51 @@ Fase 1, para não conviver com tabelas de negócio.
 
 ---
 
+## Fase 4 — Consultas Pediátricas (`Appointments`) ✅ (concluída)
+
+### 4.1 Domain
+- [x] Entidade `Appointment` (id, babyId, scheduledAt, doctorName, location,
+      reason, notes, status [`SCHEDULED`, `COMPLETED`, `CANCELLED`],
+      createdAt).
+- [x] Regra de domínio: `scheduledAt` não pode ser no passado — validada
+      apenas em `Appointment.schedule()` (criação) e quando o use case de
+      update recebe um novo `scheduledAt` explícito. `Appointment.restore()`
+      não revalida, permitindo completar/cancelar consultas cujo horário já
+      passou.
+
+### 4.2 Infrastructure
+- [x] Migration Prisma: relação 1:N `Baby` → `Appointment`.
+- [x] `AppointmentRepository` (interface + implementação Prisma).
+
+### 4.3 Application
+- [x] `CreateAppointmentUseCase`, `ListBabyAppointmentsUseCase`,
+      `GetAppointmentByIdUseCase`, `UpdateAppointmentUseCase` (reagendar,
+      anotar, marcar como concluída/cancelada).
+- [x] Testes cobrindo isolamento entre usuários, rejeição de data passada ao
+      criar/reagendar, e o caso crítico de completar uma consulta cujo
+      horário já passou (sem re-disparar a validação de data passada).
+
+### 4.4 Presentation
+- [x] Rotas: `POST/GET /babies/:babyId/appointments`,
+      `GET/PATCH /babies/:babyId/appointments/:appointmentId`, protegidas
+      pelo guard JWT.
+- [x] Documentação Swagger na tag `Appointments`.
+
+### 4.5 Fechamento
+- [x] 84 testes (unitários + integração) passando, sem regressão nos módulos
+      anteriores. Build (`tsc`) validado.
+- [x] Commits semânticos atômicos: `feat(domain)`, `feat(appointment)`
+      (migration, use cases, rotas).
+
+---
+
 ## Fases Futuras (fora do escopo imediato, não iniciar sem alinhamento)
 
-- Consultas pediátricas (`Appointments`) com alertas de calendário.
 - Marcos de desenvolvimento infantil (`Milestones`).
 - Redis para cache/jobs em background (lembretes, notificações).
 - Testes de integração ponta a ponta contra banco Dockerizado
-  (Supertest + Vitest).
+  (Supertest + Vitest) — já parcialmente coberto pela suíte atual, que roda
+  contra o Postgres do `docker-compose.yml`.
 
 ---
 
