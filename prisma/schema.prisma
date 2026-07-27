@@ -8,12 +8,13 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  name         String
-  createdAt    DateTime @default(now()) @map("created_at")
-  babies       Baby[]
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String         @map("password_hash")
+  name          String
+  createdAt     DateTime       @default(now()) @map("created_at")
+  babies        Baby[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -37,6 +38,7 @@ model Baby {
   vaccineRecords BabyVaccineRecord[]
   appointments   Appointment[]
   milestones     Milestone[]
+  notifications  Notification[]
 
   @@index([userId])
   @@map("babies")
@@ -119,4 +121,27 @@ model Milestone {
 
   @@index([babyId])
   @@map("milestones")
+}
+
+enum NotificationType {
+  VACCINE_DELAYED
+  APPOINTMENT_UPCOMING
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String           @map("user_id")
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  babyId      String           @map("baby_id")
+  baby        Baby             @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  referenceId String           @map("reference_id")
+  title       String
+  message     String
+  readAt      DateTime?        @map("read_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@unique([babyId, type, referenceId])
+  @@index([userId])
+  @@map("notifications")
 }

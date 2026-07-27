@@ -21,6 +21,7 @@ export function buildBabyRepository(overrides: Partial<BabyRepository> = {}): Ba
   return {
     findById: vi.fn().mockResolvedValue(buildBaby()),
     findAllByUserId: vi.fn().mockResolvedValue([]),
+    findAll: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };

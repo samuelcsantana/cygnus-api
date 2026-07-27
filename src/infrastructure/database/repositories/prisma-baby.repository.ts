@@ -41,6 +41,11 @@ export class PrismaBabyRepository implements BabyRepository {
     return records.map(toDomain);
   }
 
+  async findAll(): Promise<Baby[]> {
+    const records = await this.prisma.baby.findMany({ orderBy: { createdAt: 'asc' } });
+    return records.map(toDomain);
+  }
+
   async save(baby: Baby): Promise<void> {
     await this.prisma.baby.upsert({
       where: { id: baby.id },
