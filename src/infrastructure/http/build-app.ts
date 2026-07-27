@@ -16,6 +16,7 @@ import { logger } from '../../shared/logging/logger';
 import { healthRoutes } from '../../presentation/http/routes/health.routes';
 import { authRoutes } from '../../presentation/http/routes/auth.routes';
 import { babyRoutes } from '../../presentation/http/routes/baby.routes';
+import { vaccineRoutes } from '../../presentation/http/routes/vaccine.routes';
 
 export async function buildApp() {
   const app = fastify({ loggerInstance: logger }).withTypeProvider<ZodTypeProvider>();
@@ -61,6 +62,7 @@ export async function buildApp() {
   await app.register(healthRoutes);
   await app.register(authRoutes);
   await app.register(babyRoutes);
+  await app.register(vaccineRoutes);
 
   return app;
 }
