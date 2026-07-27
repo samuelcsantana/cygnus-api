@@ -29,6 +29,7 @@
     "@fastify/swagger-ui": "^5.2.0",
     "@prisma/client": "^6.1.0",
     "bcrypt": "^6.0.0",
+    "bullmq": "^5.81.2",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.0",
     "fastify-type-provider-zod": "^4.0.2",
@@ -53,6 +54,7 @@
     "esbuild@0.28.1": true,
     "esbuild@0.21.5": true,
     "prisma@6.19.3": true,
-    "bcrypt@6.0.0": true
+    "bcrypt@6.0.0": true,
+    "msgpackr-extract@3.0.4": true
   }
 }
