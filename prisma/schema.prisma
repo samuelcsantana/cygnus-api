@@ -7,12 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Table with no business meaning — created solely to validate that the
-/// Docker/Postgres/Prisma migration pipeline works end to end.
-model InfrastructureCheck {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
-  note      String?
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  @@map("infrastructure_checks")
+  @@map("users")
 }
