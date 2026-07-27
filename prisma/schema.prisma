@@ -13,6 +13,28 @@ model User {
   passwordHash String   @map("password_hash")
   name         String
   createdAt    DateTime @default(now()) @map("created_at")
+  babies       Baby[]
 
   @@map("users")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+model Baby {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  birthDate  DateTime @map("birth_date") @db.Date
+  gender     Gender
+  bloodType  String?  @map("blood_type")
+  allergies  String[] @default([])
+  avatarUrl  String?  @map("avatar_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("babies")
 }
