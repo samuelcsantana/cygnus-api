@@ -189,9 +189,46 @@ Fase 1, para não conviver com tabelas de negócio.
 
 ---
 
+## Fase 5 — Marcos de Desenvolvimento (`Milestones`) ✅ (concluída)
+
+### 5.1 Domain
+- [x] Entidade `Milestone` (id, babyId, title, description, achievedAt,
+      category [`MOTOR`, `LANGUAGE`, `SOCIAL`, `COGNITIVE`, `OTHER`],
+      photoUrl, createdAt).
+- [x] Regras de domínio: `achievedAt` não pode ser no futuro nem anterior ao
+      `birthDate` do bebê (comparação por dia de calendário em UTC,
+      reaproveitando `startOfUtcDay`). Validadas apenas em
+      `Milestone.record()` (criação) e quando o update recebe um novo
+      `achievedAt` explícito — `Milestone.restore()` não revalida.
+
+### 5.2 Infrastructure
+- [x] Migration Prisma: relação 1:N `Baby` → `Milestone`.
+- [x] `MilestoneRepository` (interface + implementação Prisma).
+
+### 5.3 Application
+- [x] `CreateMilestoneUseCase`, `ListBabyMilestonesUseCase`,
+      `GetMilestoneByIdUseCase`, `UpdateMilestoneUseCase`.
+- [x] Testes cobrindo isolamento entre usuários, rejeição de data futura,
+      rejeição de data anterior ao nascimento, e atualização parcial sem
+      revalidar uma `achievedAt` antiga não alterada.
+
+### 5.4 Presentation
+- [x] Rotas: `POST/GET /babies/:babyId/milestones`,
+      `GET/PATCH /babies/:babyId/milestones/:milestoneId`, protegidas pelo
+      guard JWT.
+- [x] Documentação Swagger na tag `Milestones` (tag nova adicionada ao
+      Swagger).
+
+### 5.5 Fechamento
+- [x] 114 testes (unitários + integração) passando, sem regressão nos
+      módulos anteriores. Build (`tsc`) validado.
+- [x] Commits semânticos atômicos: `feat(domain)`, `feat(milestone)`
+      (migration, use cases, rotas).
+
+---
+
 ## Fases Futuras (fora do escopo imediato, não iniciar sem alinhamento)
 
-- Marcos de desenvolvimento infantil (`Milestones`).
 - Redis para cache/jobs em background (lembretes, notificações).
 - Testes de integração ponta a ponta contra banco Dockerizado
   (Supertest + Vitest) — já parcialmente coberto pela suíte atual, que roda
