@@ -2,6 +2,7 @@ import { buildApp } from './infrastructure/http/build-app';
 import { env } from './shared/config/env';
 import { logger } from './shared/logging/logger';
 import { prisma } from './infrastructure/database/prisma-client';
+import { redis } from './infrastructure/cache/redis-client';
 
 async function start() {
   const app = await buildApp();
@@ -10,6 +11,7 @@ async function start() {
     logger.info({ signal }, 'server.shutting_down');
     await app.close();
     await prisma.$disconnect();
+    await redis.quit();
     process.exit(0);
   };
 

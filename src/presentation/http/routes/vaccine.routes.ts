@@ -6,8 +6,10 @@ import { BabyNotFoundError } from '../../../application/baby/errors/baby-not-fou
 import { VaccineNotFoundError } from '../../../application/vaccine/errors/vaccine-not-found.error';
 import { PrismaBabyRepository } from '../../../infrastructure/database/repositories/prisma-baby.repository';
 import { PrismaVaccineRepository } from '../../../infrastructure/database/repositories/prisma-vaccine.repository';
+import { CachedVaccineRepository } from '../../../infrastructure/database/repositories/cached-vaccine.repository';
 import { PrismaBabyVaccineRecordRepository } from '../../../infrastructure/database/repositories/prisma-baby-vaccine-record.repository';
 import { prisma } from '../../../infrastructure/database/prisma-client';
+import { redis } from '../../../infrastructure/cache/redis-client';
 import { authenticate } from '../plugins/authenticate';
 import { authErrorResponseSchema } from '../schemas/auth.schema';
 import {
@@ -40,7 +42,7 @@ function toScheduleResponse(schedule: AgeGroupSchedule[]) {
 
 export async function vaccineRoutes(app: App) {
   const babyRepository = new PrismaBabyRepository(prisma);
-  const vaccineRepository = new PrismaVaccineRepository(prisma);
+  const vaccineRepository = new CachedVaccineRepository(new PrismaVaccineRepository(prisma), redis);
   const babyVaccineRecordRepository = new PrismaBabyVaccineRecordRepository(prisma);
   const getBabyVaccineScheduleUseCase = new GetBabyVaccineScheduleUseCase(
     babyRepository,
