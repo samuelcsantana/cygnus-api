@@ -36,6 +36,7 @@ model Baby {
   createdAt      DateTime            @default(now()) @map("created_at")
   vaccineRecords BabyVaccineRecord[]
   appointments   Appointment[]
+  milestones     Milestone[]
 
   @@index([userId])
   @@map("babies")
@@ -95,4 +96,27 @@ model Appointment {
 
   @@index([babyId])
   @@map("appointments")
+}
+
+enum MilestoneCategory {
+  MOTOR
+  LANGUAGE
+  SOCIAL
+  COGNITIVE
+  OTHER
+}
+
+model Milestone {
+  id          String            @id @default(uuid())
+  babyId      String            @map("baby_id")
+  baby        Baby              @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  achievedAt  DateTime          @map("achieved_at") @db.Date
+  category    MilestoneCategory
+  photoUrl    String?           @map("photo_url")
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@index([babyId])
+  @@map("milestones")
 }
