@@ -107,36 +107,47 @@ Fase 1, para não conviver com tabelas de negócio.
 
 ---
 
-## Fase 3 — Motor de Vacinação (`Vaccine Schedule`)
+## Fase 3 — Motor de Vacinação (`Vaccine Schedule`) ✅ (concluída)
 
 ### 3.1 Domain
-- [ ] Entidade `Vaccine` (id, name, description, recommendedAgeInMonths,
+- [x] Entidade `Vaccine` (id, name, description, recommendedAgeInMonths,
       doseNumber).
-- [ ] Entidade `BabyVaccineRecord` (id, babyId, vaccineId, status [`PENDING`,
-      `APPLIED`, `DELAYED`], applicationDate, notes).
+- [x] Entidade `BabyVaccineRecord` (id, babyId, vaccineId, status [`PENDING`,
+      `APPLIED`, `DELAYED`], applicationDate, notes). `PENDING`/`DELAYED` são
+      calculados em tempo de leitura (`BabyVaccineRecord.derive`, comparando
+      dias de calendário em UTC) em vez de persistidos como estado
+      potencialmente obsoleto; apenas `APPLIED` é gravado no banco.
 
 ### 3.2 Infrastructure
-- [ ] Migration Prisma para `vaccines` e `baby_vaccine_records`.
-- [ ] Seeder com as 5 vacinas básicas do calendário infantil (ex.: BCG ao
-      nascer, Hepatite B ao nascer, Pentavalente aos 2 meses, VIP/VOP,
-      Tríplice Viral aos 12 meses).
+- [x] Migration Prisma para `vaccines` e `baby_vaccine_records` (registro
+      persistido só existe quando a dose é marcada como aplicada).
+- [x] Seeder (`prisma/seed.ts` + `prisma/vaccine-catalog-seed-data.ts`) com as
+      5 vacinas básicas do calendário infantil brasileiro (BCG ao nascer,
+      Hepatite B ao nascer, Pentavalente/VIP/Pneumocócica 10-valente aos 2
+      meses).
 
 ### 3.3 Application
-- [ ] `GetBabyVaccineScheduleUseCase`: recebe `babyId`, busca `birthDate`,
-      calcula PENDENTE vs. ATRASADA com base na data atual, retorna calendário
-      agrupado por faixa etária.
-- [ ] `MarkVaccineAsAppliedUseCase`: atualiza status do checklist.
-- [ ] Testes unitários focados em lógica de datas (fronteiras de atraso,
-      fusos, bebê recém-nascido, vacina já aplicada antecipadamente).
+- [x] `GetBabyVaccineScheduleUseCase`: recebe `babyId`, busca `birthDate`,
+      calcula PENDENTE vs. ATRASADA com base na data de referência, retorna
+      calendário agrupado por faixa etária (ordenado ascendente).
+- [x] `MarkVaccineAsAppliedUseCase`: upsert do registro aplicado, com
+      isolamento por dono do bebê (mesma regra do módulo Baby).
+- [x] Testes unitários de lógica de datas: `addMonthsClamped` (fim de mês,
+      ano bissexto, virada de ano), `BabyVaccineRecord.derive` (vacina devida
+      hoje não é atraso), cenários completos no use case (recém-nascido,
+      vacina atrasada, vacina aplicada antecipadamente).
 
 ### 3.4 Presentation
-- [ ] Rotas: `GET /babies/:babyId/vaccines`,
-      `PATCH /babies/:babyId/vaccines/:vaccineId/apply`.
-- [ ] Documentação Swagger na tag `Vaccines`.
+- [x] Rotas: `GET /babies/:babyId/vaccines`,
+      `PATCH /babies/:babyId/vaccines/:vaccineId/apply`, protegidas pelo
+      guard JWT.
+- [x] Documentação Swagger na tag `Vaccines`.
 
 ### 3.5 Fechamento
-- [ ] Suíte de testes completa da aplicação.
-- [ ] Commit semântico atômico.
+- [x] 57 testes (unitários + integração) passando, sem regressão em
+      Auth/Baby. Build (`tsc`) validado.
+- [x] Commits semânticos atômicos: `feat(domain)`, `feat(vaccine)`
+      (migration/seeder, use cases, rotas).
 
 ---
 
