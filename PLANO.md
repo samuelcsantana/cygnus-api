@@ -33,43 +33,43 @@ Fase 1, para não conviver com tabelas de negócio.
 
 ---
 
-## Fase 1 — Módulo de Usuário e Autenticação
+## Fase 1 — Módulo de Usuário e Autenticação ✅ (concluída)
 
 ### 1.1 Domain
-- [ ] Entidade `User` (id, email, passwordHash, name, createdAt) em
+- [x] Entidade `User` (id, email, passwordHash, name, createdAt) em
       `src/domain/user/`.
-- [ ] Value Objects/validações: `Email` (formato), `PasswordHash` (não vazio).
-- [ ] Erros de domínio: `InvalidEmailError`, `WeakPasswordError` (se aplicável).
+- [x] Value Objects/validações: `Email` (formato), nome não vazio.
+- [x] Erros de domínio: `InvalidEmailError`, `InvalidNameError`.
 
 ### 1.2 Infrastructure
-- [ ] Migration Prisma para tabela `users` (remover `InfrastructureCheck` do
-      schema neste momento).
-- [ ] Interface `UserRepository` (Application) + implementação
+- [x] Migration Prisma para tabela `users` (removido `InfrastructureCheck` do
+      schema).
+- [x] Interface `UserRepository` (Application) + implementação
       `PrismaUserRepository` (Infrastructure).
-- [ ] Serviço de hashing (`argon2` ou `bcrypt`) e serviço de JWT
-      (access + refresh) como adapters de infraestrutura.
+- [x] Serviço de hashing (`bcrypt`) e serviço de JWT (access + refresh via
+      `jsonwebtoken`) como adapters de infraestrutura.
 
 ### 1.3 Application
-- [ ] `RegisterUserUseCase` (valida e-mail único, gera hash de senha).
-- [ ] `AuthenticateUserUseCase` (valida credenciais, emite access + refresh
+- [x] `RegisterUserUseCase` (valida e-mail único, gera hash de senha).
+- [x] `AuthenticateUserUseCase` (valida credenciais, emite access + refresh
       token JWT).
-- [ ] Testes unitários mockando `UserRepository` para os dois casos de uso
+- [x] Testes unitários mockando `UserRepository` para os dois casos de uso
       (sucesso, e-mail duplicado, credenciais inválidas).
 
 ### 1.4 Presentation
-- [ ] Rotas: `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`.
-- [ ] Login/refresh injetam tokens **somente** via cookies HTTP-Only, Secure,
+- [x] Rotas: `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`.
+- [x] Login injeta tokens **somente** via cookies HTTP-Only, Secure,
       SameSite=Strict (`@fastify/cookie`) — nunca no corpo JSON.
-- [ ] Middleware/guard de autenticação Fastify (JWT via cookie) reutilizável
-      pelas próximas fases.
-- [ ] Documentação Swagger completa (tag `Auth`): request/response Zod
-      schemas, todos os status codes (`200`, `201`, `400`, `401`, `409`, `500`).
+- [x] Guard de autenticação Fastify (`authenticate`, em
+      `src/presentation/http/plugins/authenticate.ts`) reutilizável pelas
+      próximas fases (Babies).
+- [x] Documentação Swagger completa (tag `Auth`): request/response Zod
+      schemas, status codes `200`, `201`, `400`, `401`, `409`, `500`.
 
 ### 1.5 Fechamento
-- [ ] Rodar testes unitários + integração, validar build (`tsc`).
-- [ ] Commit(s) semânticos atômicos (ex.: `feat(domain): add User entity`,
-      `feat(auth): add register and login use cases`, `feat(auth): expose
-      auth routes with httponly cookies`).
+- [x] Testes unitários (5) + integração (9) passando, build (`tsc`) validado.
+- [x] Commits semânticos atômicos: `feat(domain)`, `feat(user)`,
+      `feat(auth)` (hashing/JWT, use cases, rotas), `chore(deps)`.
 
 ---
 
