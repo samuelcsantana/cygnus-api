@@ -1,7 +1,7 @@
 {
   "name": "cygnus-api",
   "version": "0.1.0",
-  "description": "Backend API for Meu Neném (meunenem.com)",
+  "description": "Backend API for the Cygnus project",
   "private": true,
   "license": "UNLICENSED",
   "main": "dist/main.js",

@@ -1,4 +1,4 @@
-# CLAUDE.md - Backend API Guidelines for "Meu Neném" (meunenem.com)
+# CLAUDE.md - Backend API Guidelines for "Cygnus" (production domain TBD)
 
 ## 1. Communication & Language Rules
 - **Conversation with User:** ALWAYS communicate, explain, and answer questions in **Portuguese (PT-BR)**.
@@ -31,7 +31,7 @@ Apply Clean Architecture and Domain-Driven Design (DDD) concepts without over-en
 ## 5. Security First & Modern Frontend Readiness
 - **Authentication:** Implement JWT (Access + Refresh Token pattern).
 - **Storage:** Sensitive tokens MUST be transmitted via **HTTP-Only, Secure, SameSite=Strict Cookies** to prevent XSS attacks. Never return tokens in the JSON body for client-side storage.
-- **CORS:** Configure CORS strictly to accept requests ONLY from the authorized Angular frontend domain (`http://localhost:4200` for local dev, and `https://meunenem.com` for production), with `credentials: true`.
+- **CORS:** Configure CORS strictly to accept requests ONLY from the authorized Angular frontend domain (local dev origin, and the production domain once it is defined — TBD, not registered yet), with `credentials: true`.
 - **Protection:** Implement Input Validation (using Zod), Rate Limiting, and security headers (Helmet).
 
 ## 6. Git Workflow (Gitflow + Semantic & Atomic Commits + Single Authorship)

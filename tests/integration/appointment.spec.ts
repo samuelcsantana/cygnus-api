@@ -70,7 +70,7 @@ describe('Appointment routes', () => {
         payload: {
           scheduledAt: futureIsoString(7),
           doctorName: 'Dr. Ana Souza',
-          location: 'Clínica Meu Neném',
+          location: 'Clínica Cygnus',
           reason: 'Routine check-up',
         },
       });
@@ -80,7 +80,7 @@ describe('Appointment routes', () => {
       expect(body).toMatchObject({
         babyId,
         doctorName: 'Dr. Ana Souza',
-        location: 'Clínica Meu Neném',
+        location: 'Clínica Cygnus',
         reason: 'Routine check-up',
         status: 'SCHEDULED',
         notes: null,

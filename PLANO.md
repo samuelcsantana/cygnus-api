@@ -1,4 +1,4 @@
-# Plano de Desenvolvimento — API "Meu Neném" (meunenem.com)
+# Plano de Desenvolvimento — API "Cygnus" (domínio de produção ainda não definido)
 
 > Documento vivo. Cada fase deve terminar com testes passando e commit semântico
 > atômico (sem co-autoria), conforme `CLAUDE.md`. Marcar checkboxes conforme o
@@ -293,7 +293,7 @@ Fase 1, para não conviver com tabelas de negócio.
   todos os status codes relevantes).
 - Tokens JWT nunca no corpo da resposta — sempre cookies HTTP-Only/Secure/
   SameSite=Strict.
-- CORS restrito a `http://localhost:4200` (dev) e `https://meunenem.com`
-  (produção), com `credentials: true`.
+- CORS restrito à origem local de dev e ao domínio de produção
+  (ainda a ser definido), com `credentials: true`.
 - Cada fase fecha com testes verdes + commit atômico semântico, sem
   `Co-authored-by`.

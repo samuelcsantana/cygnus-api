@@ -45,8 +45,8 @@ export async function buildApp() {
   await app.register(swagger, {
     openapi: {
       info: {
-        title: 'Meu Neném API',
-        description: 'Backend API for meunenem.com',
+        title: 'Cygnus API',
+        description: 'Backend API for the Cygnus project',
         version: '0.1.0',
       },
       tags: [
