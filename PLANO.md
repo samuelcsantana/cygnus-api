@@ -328,6 +328,42 @@ backend do mesmo jeito que Postgres/Redis já estavam (commit
 
 ---
 
+## Fase 8 — `DELETE /babies/:babyId` ✅ (concluída)
+
+Motivada pelo checklist de prontidão para produção do frontend
+(`cygnus/PRODUCTION_READINESS.md`): a exclusão de perfil de bebê ficava
+travada na UI porque o endpoint nunca existiu no contrato da API — item que
+tinha ficado órfão, sinalizado do lado do frontend mas nunca virado tarefa
+aqui.
+
+### 8.1 Domain/Application
+- [x] `BabyRepository.delete(id)` (interface) + implementação em
+      `PrismaBabyRepository` (`prisma.baby.delete`).
+- [x] `DeleteBabyUseCase`: mesma checagem de posse usada em
+      `GetBabyByIdUseCase`/`UpdateBabyUseCase` (`BabyNotFoundError` uniforme
+      quando o bebê não existe ou pertence a outro usuário).
+
+### 8.2 Infrastructure
+- [x] Nenhuma migration nova necessária — todas as relações filhas de `Baby`
+      (`BabyVaccineRecord`, `Appointment`, `Milestone`, `Notification`) já
+      tinham `onDelete: Cascade` no `schema.prisma` desde suas respectivas
+      fases.
+
+### 8.3 Presentation
+- [x] Rota `DELETE /babies/:babyId`, protegida pelo guard JWT, retorna `204`
+      sem corpo (`401`/`404`/`500` documentados). Documentação Swagger
+      completa na tag `Babies`.
+
+### 8.4 Fechamento
+- [x] Testes unitários (`delete-baby.use-case.spec.ts`) cobrindo sucesso,
+      bebê de outro usuário e bebê inexistente. Teste de integração cobrindo
+      cascata de exclusão, isolamento entre usuários (`404` para intruso) e
+      exposição da rota no documento OpenAPI gerado.
+- [x] Commit semântico atômico: `feat(baby)` (repository, use case, rota,
+      testes).
+
+---
+
 ## Fases Futuras (fora do escopo imediato, não iniciar sem alinhamento)
 
 - Envio real de lembretes por e-mail/push (Resend, FCM ou similar) —

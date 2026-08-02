@@ -8,6 +8,7 @@ export function buildBabyRepository(overrides: Partial<BabyRepository> = {}): Ba
     findAllByUserId: vi.fn().mockResolvedValue([]),
     findAll: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

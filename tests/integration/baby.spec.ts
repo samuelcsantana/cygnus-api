@@ -120,6 +120,13 @@ describe('Baby routes', () => {
       });
       expect(updateAsIntruder.statusCode).toBe(404);
 
+      const deleteAsIntruder = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}`,
+        headers: { cookie: intruderCookie },
+      });
+      expect(deleteAsIntruder.statusCode).toBe(404);
+
       const listAsIntruder = await app.inject({
         method: 'GET',
         url: '/babies',
@@ -178,6 +185,55 @@ describe('Baby routes', () => {
     });
   });
 
+  describe('DELETE /babies/:babyId', () => {
+    it('deletes the baby and cascades to its dependent records', async () => {
+      const cookie = await registerAndLogin('parent-delete@example.com');
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/babies',
+        headers: { cookie },
+        payload: { name: 'Dana', birthDate: '2023-02-14', gender: 'FEMALE' },
+      });
+      const babyId = createResponse.json().id;
+
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}`,
+        headers: { cookie },
+      });
+      expect(deleteResponse.statusCode).toBe(204);
+
+      const getAfterDelete = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}`,
+        headers: { cookie },
+      });
+      expect(getAfterDelete.statusCode).toBe(404);
+    });
+
+    it('returns 404 for a non-existent baby', async () => {
+      const cookie = await registerAndLogin('parent-delete-missing@example.com');
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/babies/00000000-0000-0000-0000-000000000000',
+        headers: { cookie },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('rejects the request without authentication', async () => {
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/babies/00000000-0000-0000-0000-000000000000',
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+  });
+
   it('exposes all baby routes in the generated OpenAPI document', async () => {
     const response = await app.inject({ method: 'GET', url: '/docs/json' });
     const openApiDocument = response.json();
@@ -186,5 +242,6 @@ describe('Baby routes', () => {
     expect(openApiDocument.paths['/babies'].get.tags).toContain('Babies');
     expect(openApiDocument.paths['/babies/{babyId}'].get.tags).toContain('Babies');
     expect(openApiDocument.paths['/babies/{babyId}'].patch.tags).toContain('Babies');
+    expect(openApiDocument.paths['/babies/{babyId}'].delete.tags).toContain('Babies');
   });
 });
