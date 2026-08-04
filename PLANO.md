@@ -274,6 +274,96 @@ Fase 1, para não conviver com tabelas de negócio.
 
 ---
 
+## Fase 7 — Refresh de Sessão, `/auth/me` e Fix do Job de Lembretes ✅ (concluída)
+
+Motivada pelo checklist de prontidão para produção do frontend
+(`cygnus/PRODUCTION_READINESS.md`): dois bloqueadores 🔴 (sessão expira em 15min
+sem refresh; identidade se perde a cada F5) e um bloqueador com causa raiz
+ainda não investigada (notificações nunca confirmadas ponta a ponta).
+
+### 7.1 Investigação — notificações vazias
+- [x] Causa raiz encontrada: `scheduleDailyReminderJob` (Fase 6.2) registra o
+      job repetível do BullMQ com `repeat: { pattern: '0 8 * * *' }` sem
+      `immediately: true` — o primeiro disparo só acontece na próxima
+      ocorrência do cron (8h), nunca ao subir o servidor. Qualquer sessão de
+      teste manual fora desse horário via `GET /notifications` ficava vazia
+      mesmo com vacina atrasada de verdade no banco.
+- [x] Corrigido adicionando `immediately: true` em `reminder-queue.ts`.
+      Validado localmente: log `reminders.generated` dispara na subida do
+      servidor, não só às 8h.
+
+### 7.2 Application/Infrastructure
+- [x] `TokenService.verifyRefreshToken` + implementação em
+      `JwtTokenService` (valida o `refresh_token` contra `JWT_REFRESH_SECRET`,
+      confirma `type: 'refresh'` no payload).
+- [x] `RefreshUserSessionUseCase`: valida o refresh token, confirma que o
+      usuário ainda existe (`UserRepository.findById`) e emite um novo par de
+      tokens — cobre o caso de um refresh token válido de um usuário já
+      deletado.
+
+### 7.3 Presentation
+- [x] `POST /auth/refresh`: lê o cookie `refresh_token`, rotaciona
+      `access_token`/`refresh_token` via `setAuthCookies` (mesmo helper do
+      login). 401 + limpa os cookies se o refresh token for inválido/expirado.
+- [x] `GET /auth/me`: protegida pelo guard JWT existente, retorna
+      `{ id, email, name, createdAt }` do usuário autenticado.
+- [x] Documentação Swagger completa (tag `Auth`) para as duas rotas novas.
+
+### 7.4 Fechamento
+- [x] 145 testes (unitários + integração) passando — incluindo
+      `refresh-user-session.use-case.spec.ts` (novo) e extensão de
+      `tests/integration/auth.spec.ts` cobrindo rotação de cookie, 401 sem
+      cookie, 401 com token inválido, e o novo endpoint no doc OpenAPI
+      gerado. Build (`tsc`) validado.
+- [x] Commits semânticos atômicos: `fix(queue)` (job imediato),
+      `feat(auth)` (refresh + me).
+
+**Nota de infra (fora do escopo de "fase" de domínio):** nesta mesma sessão
+o projeto foi renomeado de "Meu Neném" para "Cygnus" (containers, volumes
+Docker, `package.json`, título do Swagger, fixtures de teste — commit
+`chore: rename project from Meu Neném to Cygnus`) e ganhou um `Dockerfile`
+multi-stage + serviço `api` no `docker-compose.yml`, containerizando o
+backend do mesmo jeito que Postgres/Redis já estavam (commit
+`build: containerize the api service`).
+
+---
+
+## Fase 8 — `DELETE /babies/:babyId` ✅ (concluída)
+
+Motivada pelo checklist de prontidão para produção do frontend
+(`cygnus/PRODUCTION_READINESS.md`): a exclusão de perfil de bebê ficava
+travada na UI porque o endpoint nunca existiu no contrato da API — item que
+tinha ficado órfão, sinalizado do lado do frontend mas nunca virado tarefa
+aqui.
+
+### 8.1 Domain/Application
+- [x] `BabyRepository.delete(id)` (interface) + implementação em
+      `PrismaBabyRepository` (`prisma.baby.delete`).
+- [x] `DeleteBabyUseCase`: mesma checagem de posse usada em
+      `GetBabyByIdUseCase`/`UpdateBabyUseCase` (`BabyNotFoundError` uniforme
+      quando o bebê não existe ou pertence a outro usuário).
+
+### 8.2 Infrastructure
+- [x] Nenhuma migration nova necessária — todas as relações filhas de `Baby`
+      (`BabyVaccineRecord`, `Appointment`, `Milestone`, `Notification`) já
+      tinham `onDelete: Cascade` no `schema.prisma` desde suas respectivas
+      fases.
+
+### 8.3 Presentation
+- [x] Rota `DELETE /babies/:babyId`, protegida pelo guard JWT, retorna `204`
+      sem corpo (`401`/`404`/`500` documentados). Documentação Swagger
+      completa na tag `Babies`.
+
+### 8.4 Fechamento
+- [x] Testes unitários (`delete-baby.use-case.spec.ts`) cobrindo sucesso,
+      bebê de outro usuário e bebê inexistente. Teste de integração cobrindo
+      cascata de exclusão, isolamento entre usuários (`404` para intruso) e
+      exposição da rota no documento OpenAPI gerado.
+- [x] Commit semântico atômico: `feat(baby)` (repository, use case, rota,
+      testes).
+
+---
+
 ## Fases Futuras (fora do escopo imediato, não iniciar sem alinhamento)
 
 - Envio real de lembretes por e-mail/push (Resend, FCM ou similar) —

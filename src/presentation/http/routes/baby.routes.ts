@@ -1,9 +1,11 @@
+import { z } from 'zod';
 import type { App } from '../../../infrastructure/http/build-app';
 import { Baby } from '../../../domain/baby/baby';
 import { CreateBabyUseCase } from '../../../application/baby/create-baby.use-case';
 import { ListUserBabiesUseCase } from '../../../application/baby/list-user-babies.use-case';
 import { GetBabyByIdUseCase } from '../../../application/baby/get-baby-by-id.use-case';
 import { UpdateBabyUseCase } from '../../../application/baby/update-baby.use-case';
+import { DeleteBabyUseCase } from '../../../application/baby/delete-baby.use-case';
 import { BabyNotFoundError } from '../../../application/baby/errors/baby-not-found.error';
 import { DomainError } from '../../../shared/errors/domain-error';
 import { PrismaBabyRepository } from '../../../infrastructure/database/repositories/prisma-baby.repository';
@@ -42,6 +44,7 @@ export async function babyRoutes(app: App) {
   const listUserBabiesUseCase = new ListUserBabiesUseCase(babyRepository);
   const getBabyByIdUseCase = new GetBabyByIdUseCase(babyRepository);
   const updateBabyUseCase = new UpdateBabyUseCase(babyRepository);
+  const deleteBabyUseCase = new DeleteBabyUseCase(babyRepository);
 
   app.route({
     method: 'POST',
@@ -172,6 +175,42 @@ export async function babyRoutes(app: App) {
 
         if (error instanceof DomainError) {
           return reply.status(400).send({ status: 'error', message: error.message });
+        }
+
+        throw error;
+      }
+    },
+  });
+
+  app.route({
+    method: 'DELETE',
+    url: '/babies/:babyId',
+    preHandler: authenticate,
+    schema: {
+      tags: ['Babies'],
+      summary: 'Delete a baby profile',
+      description:
+        'Deletes a baby profile owned by the authenticated user, cascading to its vaccine records, ' +
+        'appointments, milestones and notifications.',
+      params: babyParamsSchema,
+      response: {
+        204: z.null().describe('Baby profile deleted successfully'),
+        401: authErrorResponseSchema,
+        404: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        await deleteBabyUseCase.execute({
+          babyId: request.params.babyId,
+          requestingUserId: request.userId,
+        });
+
+        return reply.status(204).send(null);
+      } catch (error) {
+        if (error instanceof BabyNotFoundError) {
+          return reply.status(404).send({ status: 'error', message: error.message });
         }
 
         throw error;

@@ -70,4 +70,8 @@ export class PrismaBabyRepository implements BabyRepository {
       },
     });
   }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.baby.delete({ where: { id } });
+  }
 }

@@ -5,4 +5,5 @@ export interface BabyRepository {
   findAllByUserId(userId: string): Promise<Baby[]>;
   findAll(): Promise<Baby[]>;
   save(baby: Baby): Promise<void>;
+  delete(id: string): Promise<void>;
 }
