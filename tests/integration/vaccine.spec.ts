@@ -187,11 +187,118 @@ describe('Vaccine routes', () => {
     });
   });
 
+  describe('POST /babies/:babyId/vaccines/adhoc', () => {
+    it('registers a campaign vaccine as already applied', async () => {
+      const cookie = await registerAndLogin('parent-adhoc-register@example.com');
+      const babyId = await createBaby(cookie, '2024-01-01');
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie },
+        payload: {
+          source: 'CAMPAIGN',
+          customName: 'Influenza — Campanha anual',
+          applicationDate: '2024-06-01',
+          location: 'UBS Central',
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toMatchObject({
+        babyId,
+        source: 'CAMPAIGN',
+        customName: 'Influenza — Campanha anual',
+        status: 'APPLIED',
+        applicationDate: '2024-06-01',
+        location: 'UBS Central',
+      });
+    });
+
+    it('rejects an empty custom name with 400', async () => {
+      const cookie = await registerAndLogin('parent-adhoc-invalid@example.com');
+      const babyId = await createBaby(cookie, '2024-01-01');
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie },
+        payload: { source: 'CUSTOM', customName: '   ', applicationDate: '2024-06-01' },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it("returns 404 when registering for another user's baby", async () => {
+      const ownerCookie = await registerAndLogin('adhoc-owner@example.com');
+      const intruderCookie = await registerAndLogin('adhoc-intruder@example.com');
+      const babyId = await createBaby(ownerCookie, '2024-01-01');
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie: intruderCookie },
+        payload: { source: 'CUSTOM', customName: 'Vacina extra', applicationDate: '2024-06-01' },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe('GET /babies/:babyId/vaccines/adhoc', () => {
+    it('lists registered campaign/custom records, newest application first', async () => {
+      const cookie = await registerAndLogin('parent-adhoc-list@example.com');
+      const babyId = await createBaby(cookie, '2024-01-01');
+
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie },
+        payload: { source: 'CUSTOM', customName: 'Vacina antiga', applicationDate: '2024-01-10' },
+      });
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie },
+        payload: { source: 'CAMPAIGN', customName: 'Vacina recente', applicationDate: '2024-06-01' },
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const records = response.json();
+      expect(records.map((record: { customName: string }) => record.customName)).toEqual([
+        'Vacina recente',
+        'Vacina antiga',
+      ]);
+    });
+
+    it("prevents a user from reading another user's adhoc records", async () => {
+      const ownerCookie = await registerAndLogin('adhoc-list-owner@example.com');
+      const intruderCookie = await registerAndLogin('adhoc-list-intruder@example.com');
+      const babyId = await createBaby(ownerCookie, '2024-01-01');
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie: intruderCookie },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+  });
+
   it('exposes all vaccine routes in the generated OpenAPI document', async () => {
     const response = await app.inject({ method: 'GET', url: '/docs/json' });
     const openApiDocument = response.json();
 
     expect(openApiDocument.paths['/babies/{babyId}/vaccines'].get.tags).toContain('Vaccines');
     expect(openApiDocument.paths['/babies/{babyId}/vaccines/{vaccineId}/apply'].patch.tags).toContain('Vaccines');
+    expect(openApiDocument.paths['/babies/{babyId}/vaccines/adhoc'].get.tags).toContain('Vaccines');
+    expect(openApiDocument.paths['/babies/{babyId}/vaccines/adhoc'].post.tags).toContain('Vaccines');
   });
 });

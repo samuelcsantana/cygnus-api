@@ -63,15 +63,28 @@ enum VaccineRecordStatus {
   DELAYED
 }
 
+enum VaccineRecordSource {
+  CATALOG
+  CAMPAIGN
+  CUSTOM
+}
+
 model BabyVaccineRecord {
   id              String              @id @default(uuid())
   babyId          String              @map("baby_id")
   baby            Baby                @relation(fields: [babyId], references: [id], onDelete: Cascade)
-  vaccineId       String              @map("vaccine_id")
-  vaccine         Vaccine             @relation(fields: [vaccineId], references: [id], onDelete: Cascade)
+  vaccineId       String?             @map("vaccine_id")
+  vaccine         Vaccine?            @relation(fields: [vaccineId], references: [id], onDelete: Cascade)
+  source          VaccineRecordSource @default(CATALOG)
+  customName      String?             @map("custom_name")
+  customDose      String?             @map("custom_dose")
   status          VaccineRecordStatus
   applicationDate DateTime?           @map("application_date") @db.Date
   notes           String?
+  batchNumber     String?             @map("batch_number")
+  location        String?
+  professional    String?
+  photoUrl        String?             @map("photo_url")
   createdAt       DateTime            @default(now()) @map("created_at")
 
   @@unique([babyId, vaccineId])

@@ -52,6 +52,7 @@ export function buildBabyVaccineRecordRepository(
     findAllByBabyId: vi.fn().mockResolvedValue([]),
     findByBabyAndVaccine: vi.fn().mockResolvedValue(null),
     save: vi.fn().mockResolvedValue(undefined),
+    create: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
