@@ -15,6 +15,10 @@ export const markVaccineAppliedParamsSchema = z.object({
 export const markVaccineAppliedBodySchema = z.object({
   applicationDate: dateOnlySchema.optional().describe('Defaults to today when omitted'),
   notes: z.string().optional(),
+  batchNumber: z.string().optional(),
+  location: z.string().optional(),
+  professional: z.string().optional(),
+  photoUrl: z.string().url().optional(),
 });
 
 export const vaccineScheduleItemSchema = z.object({
@@ -26,6 +30,10 @@ export const vaccineScheduleItemSchema = z.object({
   status: statusSchema,
   applicationDate: dateOnlySchema.nullable(),
   notes: z.string().nullable(),
+  batchNumber: z.string().nullable(),
+  location: z.string().nullable(),
+  professional: z.string().nullable(),
+  photoUrl: z.string().nullable(),
 });
 
 export const ageGroupScheduleSchema = z.object({

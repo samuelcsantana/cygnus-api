@@ -66,11 +66,19 @@ export class PrismaBabyVaccineRecordRepository implements BabyVaccineRecordRepos
         status: record.status,
         applicationDate: record.applicationDate,
         notes: record.notes,
+        batchNumber: record.batchNumber,
+        location: record.location,
+        professional: record.professional,
+        photoUrl: record.photoUrl,
       },
       update: {
         status: record.status,
         applicationDate: record.applicationDate,
         notes: record.notes,
+        batchNumber: record.batchNumber,
+        location: record.location,
+        professional: record.professional,
+        photoUrl: record.photoUrl,
       },
     });
   }

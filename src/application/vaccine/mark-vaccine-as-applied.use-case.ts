@@ -12,6 +12,10 @@ export interface MarkVaccineAsAppliedInput {
   requestingUserId: string;
   applicationDate?: Date;
   notes?: string | null;
+  batchNumber?: string | null;
+  location?: string | null;
+  professional?: string | null;
+  photoUrl?: string | null;
 }
 
 export class MarkVaccineAsAppliedUseCase {
@@ -45,6 +49,10 @@ export class MarkVaccineAsAppliedUseCase {
       vaccineId: input.vaccineId,
       applicationDate: input.applicationDate ?? new Date(),
       notes: input.notes,
+      batchNumber: input.batchNumber,
+      location: input.location,
+      professional: input.professional,
+      photoUrl: input.photoUrl,
     });
 
     await this.babyVaccineRecordRepository.save(record);

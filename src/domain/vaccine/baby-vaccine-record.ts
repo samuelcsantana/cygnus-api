@@ -50,6 +50,10 @@ export interface MarkAppliedProps {
   vaccineId: string;
   applicationDate: Date;
   notes?: string | null;
+  batchNumber?: string | null;
+  location?: string | null;
+  professional?: string | null;
+  photoUrl?: string | null;
 }
 
 export interface RegisterAdhocProps {
@@ -131,10 +135,10 @@ export class BabyVaccineRecord {
       status: 'APPLIED',
       applicationDate: props.applicationDate,
       notes: props.notes ?? null,
-      batchNumber: null,
-      location: null,
-      professional: null,
-      photoUrl: null,
+      batchNumber: props.batchNumber ?? null,
+      location: props.location ?? null,
+      professional: props.professional ?? null,
+      photoUrl: props.photoUrl ?? null,
     });
   }
 

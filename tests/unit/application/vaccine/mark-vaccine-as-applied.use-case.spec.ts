@@ -61,6 +61,32 @@ describe('MarkVaccineAsAppliedUseCase', () => {
     expect(record.id).toBe('existing-record-id');
   });
 
+  it('stores batch number, location, professional and photo details', async () => {
+    const baby = buildBaby({ userId: 'owner-id' });
+    const vaccine = buildVaccine();
+    const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
+    const vaccineRepository = buildVaccineRepository({ findById: vi.fn().mockResolvedValue(vaccine) });
+    const babyVaccineRecordRepository = buildBabyVaccineRecordRepository();
+
+    const useCase = new MarkVaccineAsAppliedUseCase(babyRepository, vaccineRepository, babyVaccineRecordRepository);
+
+    const record = await useCase.execute({
+      babyId: baby.id,
+      vaccineId: vaccine.id,
+      requestingUserId: 'owner-id',
+      applicationDate: new Date('2024-02-01T00:00:00.000Z'),
+      batchNumber: 'LOT-123',
+      location: 'Clínica Vita',
+      professional: 'Dr. Souza',
+      photoUrl: 'https://example.com/photo.jpg',
+    });
+
+    expect(record.batchNumber).toBe('LOT-123');
+    expect(record.location).toBe('Clínica Vita');
+    expect(record.professional).toBe('Dr. Souza');
+    expect(record.photoUrl).toBe('https://example.com/photo.jpg');
+  });
+
   it("rejects marking another user's baby as vaccinated", async () => {
     const baby = buildBaby({ userId: 'owner-id' });
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });

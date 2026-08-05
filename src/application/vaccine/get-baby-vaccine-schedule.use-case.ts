@@ -14,6 +14,10 @@ export interface VaccineScheduleItem {
   status: VaccineRecordStatus;
   applicationDate: Date | null;
   notes: string | null;
+  batchNumber: string | null;
+  location: string | null;
+  professional: string | null;
+  photoUrl: string | null;
 }
 
 export interface AgeGroupSchedule {
@@ -70,6 +74,10 @@ export class GetBabyVaccineScheduleUseCase {
         status: record.status,
         applicationDate: record.applicationDate,
         notes: record.notes,
+        batchNumber: record.batchNumber,
+        location: record.location,
+        professional: record.professional,
+        photoUrl: record.photoUrl,
       };
     });
 

@@ -60,6 +60,10 @@ function toScheduleResponse(schedule: AgeGroupSchedule[]) {
       status: item.status,
       applicationDate: toDateOnly(item.applicationDate),
       notes: item.notes,
+      batchNumber: item.batchNumber,
+      location: item.location,
+      professional: item.professional,
+      photoUrl: item.photoUrl,
     })),
   }));
 }
@@ -144,6 +148,10 @@ export async function vaccineRoutes(app: App) {
             ? new Date(`${request.body.applicationDate}T00:00:00.000Z`)
             : undefined,
           notes: request.body.notes,
+          batchNumber: request.body.batchNumber,
+          location: request.body.location,
+          professional: request.body.professional,
+          photoUrl: request.body.photoUrl,
         });
 
         const vaccine = await vaccineRepository.findById(request.params.vaccineId);
@@ -157,6 +165,10 @@ export async function vaccineRoutes(app: App) {
           status: record.status,
           applicationDate: toDateOnly(record.applicationDate),
           notes: record.notes,
+          batchNumber: record.batchNumber,
+          location: record.location,
+          professional: record.professional,
+          photoUrl: record.photoUrl,
         });
       } catch (error) {
         if (error instanceof BabyNotFoundError || error instanceof VaccineNotFoundError) {

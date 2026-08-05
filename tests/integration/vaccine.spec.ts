@@ -156,6 +156,75 @@ describe('Vaccine routes', () => {
       expect(item.status).toBe('APPLIED');
     });
 
+    it('stores and returns batch number, location, professional and photo details', async () => {
+      const cookie = await registerAndLogin('parent-apply-details@example.com');
+      const babyId = await createBaby(cookie, '2024-01-01');
+      const vaccine = await prisma.vaccine.findFirstOrThrow({ where: { recommendedAgeInMonths: 0 } });
+
+      const applyResponse = await app.inject({
+        method: 'PATCH',
+        url: `/babies/${babyId}/vaccines/${vaccine.id}/apply`,
+        headers: { cookie },
+        payload: {
+          applicationDate: '2024-01-05',
+          batchNumber: 'LOT-123',
+          location: 'UBS Central',
+          professional: 'Dr. Souza',
+          photoUrl: 'https://example.com/photo.jpg',
+        },
+      });
+
+      expect(applyResponse.statusCode).toBe(200);
+      expect(applyResponse.json()).toMatchObject({
+        batchNumber: 'LOT-123',
+        location: 'UBS Central',
+        professional: 'Dr. Souza',
+        photoUrl: 'https://example.com/photo.jpg',
+      });
+
+      const scheduleResponse = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/vaccines`,
+        headers: { cookie },
+      });
+
+      const schedule = scheduleResponse.json();
+      const item = schedule
+        .flatMap((group: { items: { vaccineId: string }[] }) => group.items)
+        .find((scheduleItem: { vaccineId: string }) => scheduleItem.vaccineId === vaccine.id);
+
+      expect(item).toMatchObject({
+        batchNumber: 'LOT-123',
+        location: 'UBS Central',
+        professional: 'Dr. Souza',
+        photoUrl: 'https://example.com/photo.jpg',
+      });
+    });
+
+    it('returns null detail fields for a vaccine that has not been applied yet', async () => {
+      const cookie = await registerAndLogin('parent-schedule-nulls@example.com');
+      const babyId = await createBaby(cookie, '2024-01-01');
+
+      const scheduleResponse = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/vaccines`,
+        headers: { cookie },
+      });
+
+      const schedule = scheduleResponse.json();
+      const item = schedule.flatMap((group: { items: unknown[] }) => group.items)[0] as {
+        batchNumber: string | null;
+        location: string | null;
+        professional: string | null;
+        photoUrl: string | null;
+      };
+
+      expect(item.batchNumber).toBeNull();
+      expect(item.location).toBeNull();
+      expect(item.professional).toBeNull();
+      expect(item.photoUrl).toBeNull();
+    });
+
     it('returns 404 when marking a baby that belongs to another user', async () => {
       const ownerCookie = await registerAndLogin('apply-owner@example.com');
       const intruderCookie = await registerAndLogin('apply-intruder@example.com');
