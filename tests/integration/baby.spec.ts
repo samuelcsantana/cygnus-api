@@ -89,6 +89,33 @@ describe('Baby routes', () => {
 
       expect(response.statusCode).toBe(401);
     });
+
+    it('accepts and returns an avatarColor', async () => {
+      const cookie = await registerAndLogin('parent-avatar-color@example.com');
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/babies',
+        headers: { cookie },
+        payload: { name: 'Alice', birthDate: '2024-03-10', gender: 'FEMALE', avatarColor: '#2A9D8F' },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json().avatarColor).toBe('#2A9D8F');
+    });
+
+    it('rejects an avatarColor that is not a hex color', async () => {
+      const cookie = await registerAndLogin('parent-bad-avatar-color@example.com');
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/babies',
+        headers: { cookie },
+        payload: { name: 'Alice', birthDate: '2024-03-10', gender: 'FEMALE', avatarColor: 'teal' },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
   });
 
   describe('user isolation', () => {
@@ -169,6 +196,30 @@ describe('Baby routes', () => {
       expect(body.bloodType).toBe('O+');
       expect(body.name).toBe('Carla');
       expect(body.birthDate).toBe('2022-11-20');
+    });
+
+    it('updates the avatarColor independently of the avatarUrl', async () => {
+      const cookie = await registerAndLogin('parent-update-avatar-color@example.com');
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/babies',
+        headers: { cookie },
+        payload: { name: 'Dora', birthDate: '2022-11-20', gender: 'FEMALE' },
+      });
+      const babyId = createResponse.json().id;
+
+      const updateResponse = await app.inject({
+        method: 'PATCH',
+        url: `/babies/${babyId}`,
+        headers: { cookie },
+        payload: { avatarColor: '#F4A261' },
+      });
+
+      expect(updateResponse.statusCode).toBe(200);
+      const body = updateResponse.json();
+      expect(body.avatarColor).toBe('#F4A261');
+      expect(body.avatarUrl).toBeNull();
     });
 
     it('returns 404 for a non-existent baby', async () => {

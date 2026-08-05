@@ -10,6 +10,7 @@ export interface CreateBabyInput {
   bloodType?: string | null;
   allergies?: string[];
   avatarUrl?: string | null;
+  avatarColor?: string | null;
 }
 
 export class CreateBabyUseCase {
@@ -25,6 +26,7 @@ export class CreateBabyUseCase {
       bloodType: input.bloodType,
       allergies: input.allergies,
       avatarUrl: input.avatarUrl,
+      avatarColor: input.avatarColor,
     });
 
     await this.babyRepository.save(baby);

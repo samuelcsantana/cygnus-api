@@ -11,6 +11,7 @@ export interface UpdateBabyInput {
   bloodType?: string | null;
   allergies?: string[];
   avatarUrl?: string | null;
+  avatarColor?: string | null;
 }
 
 export class UpdateBabyUseCase {
@@ -32,6 +33,7 @@ export class UpdateBabyUseCase {
       bloodType: input.bloodType !== undefined ? input.bloodType : existingBaby.bloodType,
       allergies: input.allergies ?? existingBaby.allergies,
       avatarUrl: input.avatarUrl !== undefined ? input.avatarUrl : existingBaby.avatarUrl,
+      avatarColor: input.avatarColor !== undefined ? input.avatarColor : existingBaby.avatarColor,
       createdAt: existingBaby.createdAt,
     });
 

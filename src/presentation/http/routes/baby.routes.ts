@@ -34,6 +34,7 @@ function toResponse(baby: Baby) {
     bloodType: baby.bloodType,
     allergies: baby.allergies,
     avatarUrl: baby.avatarUrl,
+    avatarColor: baby.avatarColor,
     createdAt: baby.createdAt.toISOString(),
   };
 }
@@ -72,6 +73,7 @@ export async function babyRoutes(app: App) {
           bloodType: request.body.bloodType,
           allergies: request.body.allergies,
           avatarUrl: request.body.avatarUrl,
+          avatarColor: request.body.avatarColor,
         });
 
         return reply.status(201).send(toResponse(baby));
@@ -165,6 +167,7 @@ export async function babyRoutes(app: App) {
           bloodType: request.body.bloodType,
           allergies: request.body.allergies,
           avatarUrl: request.body.avatarUrl,
+          avatarColor: request.body.avatarColor,
         });
 
         return reply.status(200).send(toResponse(baby));

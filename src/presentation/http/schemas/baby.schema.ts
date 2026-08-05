@@ -3,6 +3,10 @@ import { z } from 'zod';
 const genderSchema = z.enum(['MALE', 'FEMALE']);
 const bloodTypeSchema = z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']);
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format');
+const avatarColorSchema = z
+  .string()
+  .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a hex value like #2A9D8F')
+  .describe("Hex color used as the avatar's border, e.g. #2A9D8F");
 
 export const babyParamsSchema = z.object({
   babyId: z.string().uuid(),
@@ -15,6 +19,7 @@ export const createBabyBodySchema = z.object({
   bloodType: bloodTypeSchema.optional(),
   allergies: z.array(z.string().min(1)).optional().describe('Known allergies, e.g. lactose, penicillin'),
   avatarUrl: z.string().url().optional(),
+  avatarColor: avatarColorSchema.optional(),
 });
 
 export const updateBabyBodySchema = z
@@ -25,6 +30,7 @@ export const updateBabyBodySchema = z
     bloodType: bloodTypeSchema.nullable().optional(),
     allergies: z.array(z.string().min(1)).optional(),
     avatarUrl: z.string().url().nullable().optional(),
+    avatarColor: avatarColorSchema.nullable().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: 'At least one field must be provided' });
 
@@ -38,6 +44,7 @@ export const babyResponseSchema = z
     bloodType: z.string().nullable(),
     allergies: z.array(z.string()),
     avatarUrl: z.string().nullable(),
+    avatarColor: z.string().nullable(),
     createdAt: z.string().datetime(),
   })
   .describe('A baby profile owned by the authenticated user');
