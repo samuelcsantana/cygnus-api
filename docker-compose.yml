@@ -44,6 +44,9 @@ services:
       - .env
     environment:
       NODE_ENV: production
+      # This compose file runs the production image locally over plain HTTP (no TLS terminator),
+      # so auth cookies must not be marked Secure or the browser silently refuses to store them.
+      SECURE_COOKIES: 'false'
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
     ports:

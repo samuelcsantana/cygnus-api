@@ -12,6 +12,11 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(1),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  // Whether to mark auth cookies `Secure` (requires HTTPS to be stored by the browser at all).
+  // Defaults to NODE_ENV === 'production', but is settable independently: the production Docker
+  // image is also used to run this API locally over plain HTTP, where NODE_ENV stays 'production'
+  // (matching the real deployment build) but the browser would silently drop a Secure cookie.
+  SECURE_COOKIES: z.enum(['true', 'false']).optional(),
 });
 
 function loadEnv() {
@@ -22,7 +27,11 @@ function loadEnv() {
     throw new Error(`Invalid environment variables:\n${issues}`);
   }
 
-  return parsed.data;
+  const secureCookies = parsed.data.SECURE_COOKIES
+    ? parsed.data.SECURE_COOKIES === 'true'
+    : parsed.data.NODE_ENV === 'production';
+
+  return { ...parsed.data, secureCookies };
 }
 
 export const env = loadEnv();

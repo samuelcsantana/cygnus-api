@@ -29,7 +29,7 @@ const REFRESH_TOKEN_COOKIE = 'refresh_token';
 function setAuthCookies(reply: FastifyReply, accessToken: string, refreshToken: string): void {
   const cookieOptions = {
     httpOnly: true,
-    secure: env.NODE_ENV === 'production',
+    secure: env.secureCookies,
     sameSite: 'strict' as const,
     path: '/',
   };
