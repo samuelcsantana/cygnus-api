@@ -15,6 +15,7 @@ import { env } from '../../shared/config/env';
 import { logger } from '../../shared/logging/logger';
 import { healthRoutes } from '../../presentation/http/routes/health.routes';
 import { authRoutes } from '../../presentation/http/routes/auth.routes';
+import { userRoutes } from '../../presentation/http/routes/user.routes';
 import { babyRoutes } from '../../presentation/http/routes/baby.routes';
 import { vaccineRoutes } from '../../presentation/http/routes/vaccine.routes';
 import { appointmentRoutes } from '../../presentation/http/routes/appointment.routes';
@@ -52,6 +53,7 @@ export async function buildApp() {
       tags: [
         { name: 'Health', description: 'Infrastructure health checks' },
         { name: 'Auth', description: 'Authentication and session management' },
+        { name: 'Users', description: "The authenticated user's own profile and account" },
         { name: 'Babies', description: 'Baby profile management' },
         { name: 'Vaccines', description: 'Vaccination tracking' },
         { name: 'Appointments', description: 'Medical appointment scheduling' },
@@ -66,6 +68,7 @@ export async function buildApp() {
 
   await app.register(healthRoutes);
   await app.register(authRoutes);
+  await app.register(userRoutes);
   await app.register(babyRoutes);
   await app.register(vaccineRoutes);
   await app.register(appointmentRoutes);
