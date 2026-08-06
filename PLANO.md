@@ -400,20 +400,32 @@ schema exigia `string | null`).
 
 ### 9.3 Fechamento
 - [x] 27 testes de `appointment` (unitários + integração) passando; suíte
-      completa em 188/190 (ver nota abaixo). Build (`tsc -b`) validado.
+      completa 190/190 (o flake de `vaccine.spec.ts` citado na versão
+      anterior desta nota foi encontrado e corrigido — ver 9.4). Build
+      (`tsc -b`) validado.
 - [x] Commit semântico atômico: `fix(appointment)`.
 
-**Nota — flake pré-existente, não corrigido nesta fase:** com a suíte
-completa (`npm run test`), 2 testes de
-`tests/integration/vaccine.spec.ts` (`stores and returns batch number,
-location, professional and photo details`) falham por dados que não batem
-(`expected undefined to match object`) — mas passam isoladamente ou rodando
-só o arquivo. Não investigado a fundo ainda; suspeita é o cache Redis do
-catálogo de vacinas (`CachedVaccineRepository`, TTL de 1h sem invalidação,
-Fase 6.1) devolvendo dado obsoleto de outro arquivo de teste quando a suíte
-inteira roda em sequência. Próxima sessão: checar se o `CacheClient` usado
-nos testes de integração é isolado por arquivo ou compartilha estado entre
-`vaccine.spec.ts` e outros specs.
+### 9.4 Flake de `vaccine.spec.ts` na suíte completa — causa raiz e correção
+- **Causa raiz confirmada:** `.env.test` apontava `REDIS_URL` pro mesmo
+  Redis (mesmo host/porta/**db lógico 0**) usado pelo `docker-compose` de
+  dev. `CachedVaccineRepository` (Fase 6.1) cacheia o catálogo de vacinas
+  numa chave fixa (`vaccines:catalog`) por 1h sem invalidação — como cada
+  `vaccine` é criado com `id` autogerado (uuid), o Postgres de dev
+  (`cygnus_db`) e o de teste (`cygnus_db_test`) têm IDs diferentes para "a
+  mesma" vacina. Sempre que o cache já estava quente com o catálogo do banco
+  de **dev** (por eu ter usado o app manualmente, ex. via Playwright, entre
+  rodadas de teste), `GET /babies/:babyId/vaccines` na suíte devolvia
+  `vaccineId`s de dev que não batiam com o `vaccine.findFirstOrThrow()` da
+  suíte (consultado direto no banco de teste) — daí o
+  `expected undefined to match object`. Mesma classe de problema já
+  resolvida pra Postgres (banco de teste dedicado); nunca tinha sido
+  replicada pro Redis.
+- [x] `.env.test`/`.env.test.example`: `REDIS_URL` agora aponta pro db
+      lógico `1` (`redis://.../1`) em vez do `0` implícito — mesma instância
+      Redis, namespace de chaves isolado do dev. `ioredis` já suporta o
+      sufixo `/db` na URL nativamente, nenhuma mudança de código necessária.
+- [x] Validado com `npm run test` rodado duas vezes seguidas: 190/190 em
+      ambas, sem flake.
 
 ---
 
