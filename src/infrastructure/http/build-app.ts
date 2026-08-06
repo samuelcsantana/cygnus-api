@@ -21,6 +21,7 @@ import { vaccineRoutes } from '../../presentation/http/routes/vaccine.routes';
 import { appointmentRoutes } from '../../presentation/http/routes/appointment.routes';
 import { milestoneRoutes } from '../../presentation/http/routes/milestone.routes';
 import { notificationRoutes } from '../../presentation/http/routes/notification.routes';
+import { specialtyRoutes } from '../../presentation/http/routes/specialty.routes';
 
 export async function buildApp() {
   const app = fastify({ loggerInstance: logger }).withTypeProvider<ZodTypeProvider>();
@@ -32,6 +33,13 @@ export async function buildApp() {
     if (error.validation) {
       request.log.warn({ err: error }, 'request.validation_failed');
       return reply.status(400).send({ status: 'error', message: error.message });
+    }
+
+    // @fastify/rate-limit throws a plain Error with statusCode 429 set — without this, it fell
+    // through to the generic 500 branch below and masked the real "too many requests" response.
+    if (error.statusCode === 429) {
+      request.log.warn({ err: error }, 'request.rate_limited');
+      return reply.status(429).send({ status: 'error', message: error.message });
     }
 
     request.log.error({ err: error }, 'request.unhandled_error');
@@ -64,7 +72,11 @@ export async function buildApp() {
     transform: jsonSchemaTransform,
   });
 
-  await app.register(swaggerUi, { routePrefix: '/docs' });
+  // The Swagger UI (and its /docs/json OpenAPI document) exposes the full API surface — only
+  // wire it up outside production so it's never reachable on a public deployment.
+  if (env.NODE_ENV !== 'production') {
+    await app.register(swaggerUi, { routePrefix: '/docs' });
+  }
 
   await app.register(healthRoutes);
   await app.register(authRoutes);
@@ -74,6 +86,7 @@ export async function buildApp() {
   await app.register(appointmentRoutes);
   await app.register(milestoneRoutes);
   await app.register(notificationRoutes);
+  await app.register(specialtyRoutes);
 
   return app;
 }
