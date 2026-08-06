@@ -9,6 +9,7 @@ export interface CreateAppointmentInput {
   requestingUserId: string;
   scheduledAt: Date;
   doctorName: string;
+  specialty?: string | null;
   location?: string | null;
   reason?: string | null;
   referenceDate?: Date;
@@ -32,6 +33,7 @@ export class CreateAppointmentUseCase {
       babyId: input.babyId,
       scheduledAt: input.scheduledAt,
       doctorName: input.doctorName,
+      specialty: input.specialty,
       location: input.location,
       reason: input.reason,
       referenceDate: input.referenceDate,

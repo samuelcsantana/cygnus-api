@@ -27,6 +27,7 @@ function toResponse(appointment: Appointment) {
     babyId: appointment.babyId,
     scheduledAt: appointment.scheduledAt.toISOString(),
     doctorName: appointment.doctorName,
+    specialty: appointment.specialty,
     location: appointment.location,
     reason: appointment.reason,
     notes: appointment.notes,
@@ -68,6 +69,7 @@ export async function appointmentRoutes(app: App) {
           requestingUserId: request.userId,
           scheduledAt: new Date(request.body.scheduledAt),
           doctorName: request.body.doctorName,
+          specialty: request.body.specialty,
           location: request.body.location,
           reason: request.body.reason,
         });
@@ -182,6 +184,7 @@ export async function appointmentRoutes(app: App) {
           requestingUserId: request.userId,
           scheduledAt: request.body.scheduledAt ? new Date(request.body.scheduledAt) : undefined,
           doctorName: request.body.doctorName,
+          specialty: request.body.specialty,
           location: request.body.location,
           reason: request.body.reason,
           notes: request.body.notes,

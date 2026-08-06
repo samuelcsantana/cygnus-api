@@ -11,6 +11,7 @@ export interface UpdateAppointmentInput {
   requestingUserId: string;
   scheduledAt?: Date;
   doctorName?: string;
+  specialty?: string | null;
   location?: string | null;
   reason?: string | null;
   notes?: string | null;
@@ -56,6 +57,7 @@ export class UpdateAppointmentUseCase {
       babyId: existingAppointment.babyId,
       scheduledAt: input.scheduledAt ?? existingAppointment.scheduledAt,
       doctorName: input.doctorName ? normalizeDoctorName(input.doctorName) : existingAppointment.doctorName,
+      specialty: input.specialty !== undefined ? input.specialty : existingAppointment.specialty,
       location: input.location !== undefined ? input.location : existingAppointment.location,
       reason: input.reason !== undefined ? input.reason : existingAppointment.reason,
       notes: input.notes !== undefined ? input.notes : existingAppointment.notes,

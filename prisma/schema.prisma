@@ -104,6 +104,7 @@ model Appointment {
   baby        Baby              @relation(fields: [babyId], references: [id], onDelete: Cascade)
   scheduledAt DateTime          @map("scheduled_at")
   doctorName  String            @map("doctor_name")
+  specialty   String?
   location    String?
   reason      String?
   notes       String?

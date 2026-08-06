@@ -31,6 +31,7 @@ export function buildAppointment(overrides: Partial<Parameters<typeof Appointmen
     babyId: 'baby-1',
     scheduledAt: new Date('2024-06-10T14:00:00.000Z'),
     doctorName: 'Dr. Ana Souza',
+    specialty: null,
     referenceDate: new Date('2024-06-01T00:00:00.000Z'),
     ...overrides,
   });

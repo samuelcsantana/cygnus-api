@@ -8,6 +8,7 @@ export interface AppointmentProps {
   babyId: string;
   scheduledAt: Date;
   doctorName: string;
+  specialty: string | null;
   location: string | null;
   reason: string | null;
   notes: string | null;
@@ -20,6 +21,7 @@ export interface ScheduleAppointmentProps {
   babyId: string;
   scheduledAt: Date;
   doctorName: string;
+  specialty?: string | null;
   location?: string | null;
   reason?: string | null;
   createdAt?: Date;
@@ -31,6 +33,7 @@ export class Appointment {
   readonly babyId: string;
   readonly scheduledAt: Date;
   readonly doctorName: string;
+  readonly specialty: string | null;
   readonly location: string | null;
   readonly reason: string | null;
   readonly notes: string | null;
@@ -42,6 +45,7 @@ export class Appointment {
     this.babyId = props.babyId;
     this.scheduledAt = props.scheduledAt;
     this.doctorName = props.doctorName;
+    this.specialty = props.specialty;
     this.location = props.location;
     this.reason = props.reason;
     this.notes = props.notes;
@@ -71,6 +75,7 @@ export class Appointment {
       babyId: props.babyId,
       scheduledAt: props.scheduledAt,
       doctorName,
+      specialty: props.specialty ?? null,
       location: props.location ?? null,
       reason: props.reason ?? null,
       notes: null,

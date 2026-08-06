@@ -7,6 +7,7 @@ interface AppointmentRow {
   babyId: string;
   scheduledAt: Date;
   doctorName: string;
+  specialty: string | null;
   location: string | null;
   reason: string | null;
   notes: string | null;
@@ -20,6 +21,7 @@ function toDomain(row: AppointmentRow): Appointment {
     babyId: row.babyId,
     scheduledAt: row.scheduledAt,
     doctorName: row.doctorName,
+    specialty: row.specialty,
     location: row.location,
     reason: row.reason,
     notes: row.notes,
@@ -49,6 +51,7 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
         babyId: appointment.babyId,
         scheduledAt: appointment.scheduledAt,
         doctorName: appointment.doctorName,
+        specialty: appointment.specialty,
         location: appointment.location,
         reason: appointment.reason,
         notes: appointment.notes,
@@ -58,6 +61,7 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
       update: {
         scheduledAt: appointment.scheduledAt,
         doctorName: appointment.doctorName,
+        specialty: appointment.specialty,
         location: appointment.location,
         reason: appointment.reason,
         notes: appointment.notes,

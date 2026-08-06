@@ -14,6 +14,7 @@ export const appointmentIdParamsSchema = z.object({
 export const createAppointmentBodySchema = z.object({
   scheduledAt: z.string().datetime().describe('ISO-8601 date and time of the appointment. Cannot be in the past'),
   doctorName: z.string().min(1),
+  specialty: z.string().optional().describe('Medical specialty of the professional, e.g. Pediatria'),
   location: z.string().optional(),
   reason: z.string().optional().describe('Reason for the visit, e.g. routine check-up'),
 });
@@ -22,6 +23,7 @@ export const updateAppointmentBodySchema = z
   .object({
     scheduledAt: z.string().datetime().optional(),
     doctorName: z.string().min(1).optional(),
+    specialty: z.string().nullable().optional(),
     location: z.string().nullable().optional(),
     reason: z.string().nullable().optional(),
     notes: z.string().nullable().optional().describe('Notes added after the visit, e.g. reactions, recommendations'),
@@ -35,6 +37,7 @@ export const appointmentResponseSchema = z
     babyId: z.string().uuid(),
     scheduledAt: z.string().datetime(),
     doctorName: z.string(),
+    specialty: z.string().nullable(),
     location: z.string().nullable(),
     reason: z.string().nullable(),
     notes: z.string().nullable(),
