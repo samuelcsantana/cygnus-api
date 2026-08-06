@@ -364,6 +364,59 @@ aqui.
 
 ---
 
+## Fase 9 — `Appointment.specialty` de ponta a ponta ✅ (concluída)
+
+Motivada pela reconstrução de UX do frontend (unificação das telas de
+Vacinas/Consultas/Marcos em listas únicas entre-filhos, `cygnus/PRODUCTION_READINESS.md`):
+ao testar o fluxo de agendar consulta com dados reais, `POST
+/babies/:babyId/appointments` retornava `500`, e mesmo corrigindo isso a
+resposta falhava na validação Zod do frontend (`specialty` ausente onde o
+schema exigia `string | null`).
+
+### 9.1 Causa raiz
+- A migration `20260804020154_add_appointment_specialty` só adicionou a
+  coluna via SQL cru; `prisma/schema.prisma`, a entidade de domínio
+  `Appointment`, os use cases de criar/atualizar, o repositório Prisma e os
+  schemas de rota (`appointment.schema.ts`) nunca foram atualizados para
+  ler/gravar o campo — apesar de o frontend, a lista estática de
+  especialidades (`medical-specialty.ts`) e o formulário já existirem
+  prontos para ele. Mesma classe de bug já corrigida antes para o calendário
+  de vacinas (campos de lote/local/profissional/foto).
+- Adicionalmente, o banco de **dev** (container Docker) não tinha a coluna de
+  fato — a migration estava marcada como aplicada em `_prisma_migrations`
+  sem o `ALTER TABLE` ter rodado. Corrigido aplicando a coluna manualmente
+  (mesmo tipo de drift já visto na Fase de `avatar_color`, ver histórico do
+  `cygnus` no mesmo período).
+
+### 9.2 Correção
+- [x] `schema.prisma`: campo `specialty String?` na model `Appointment`
+      (sem migration nova — `prisma migrate status` já considerava a coluna
+      aplicada; só `prisma generate` foi necessário).
+- [x] Domínio (`Appointment`), `CreateAppointmentUseCase`,
+      `UpdateAppointmentUseCase`, `PrismaAppointmentRepository` e
+      `appointment.routes.ts`/`appointment.schema.ts` passam a ler/gravar/
+      retornar `specialty` (nullable, opcional na criação).
+- [x] `appointment-test-helpers.ts` (fixture de teste) atualizado.
+
+### 9.3 Fechamento
+- [x] 27 testes de `appointment` (unitários + integração) passando; suíte
+      completa em 188/190 (ver nota abaixo). Build (`tsc -b`) validado.
+- [x] Commit semântico atômico: `fix(appointment)`.
+
+**Nota — flake pré-existente, não corrigido nesta fase:** com a suíte
+completa (`npm run test`), 2 testes de
+`tests/integration/vaccine.spec.ts` (`stores and returns batch number,
+location, professional and photo details`) falham por dados que não batem
+(`expected undefined to match object`) — mas passam isoladamente ou rodando
+só o arquivo. Não investigado a fundo ainda; suspeita é o cache Redis do
+catálogo de vacinas (`CachedVaccineRepository`, TTL de 1h sem invalidação,
+Fase 6.1) devolvendo dado obsoleto de outro arquivo de teste quando a suíte
+inteira roda em sequência. Próxima sessão: checar se o `CacheClient` usado
+nos testes de integração é isolado por arquivo ou compartilha estado entre
+`vaccine.spec.ts` e outros specs.
+
+---
+
 ## Fases Futuras (fora do escopo imediato, não iniciar sem alinhamento)
 
 - Envio real de lembretes por e-mail/push (Resend, FCM ou similar) —
