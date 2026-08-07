@@ -1,4 +1,3 @@
-import type { FastifyReply } from 'fastify';
 import type { App } from '../../../infrastructure/http/build-app';
 import { RegisterUserUseCase } from '../../../application/user/register-user.use-case';
 import { AuthenticateUserUseCase } from '../../../application/user/authenticate-user.use-case';
@@ -10,10 +9,12 @@ import { DomainError } from '../../../shared/errors/domain-error';
 import { PrismaUserRepository } from '../../../infrastructure/database/repositories/prisma-user.repository';
 import { BcryptPasswordHasher } from '../../../infrastructure/security/bcrypt-password-hasher';
 import { tokenService } from '../../../infrastructure/security/token-service.instance';
+import { tokenRevocationService } from '../../../infrastructure/security/token-revocation-service.instance';
+import { revokeRefreshTokenIfPresent } from '../../../infrastructure/security/revoke-refresh-token';
 import { prisma } from '../../../infrastructure/database/prisma-client';
 import { env } from '../../../shared/config/env';
-import { parseDurationToSeconds } from '../../../shared/utils/parse-duration';
 import { authenticate } from '../plugins/authenticate';
+import { REFRESH_TOKEN_COOKIE, clearAuthCookies, setAuthCookies } from '../utils/auth-cookies';
 import {
   authErrorResponseSchema,
   authSuccessResponseSchema,
@@ -23,43 +24,23 @@ import {
   registerResponseSchema,
 } from '../schemas/auth.schema';
 
-const ACCESS_TOKEN_COOKIE = 'access_token';
-const REFRESH_TOKEN_COOKIE = 'refresh_token';
-
-function setAuthCookies(reply: FastifyReply, accessToken: string, refreshToken: string): void {
-  const cookieOptions = {
-    httpOnly: true,
-    secure: env.secureCookies,
-    sameSite: 'strict' as const,
-    path: '/',
-  };
-
-  reply.setCookie(ACCESS_TOKEN_COOKIE, accessToken, {
-    ...cookieOptions,
-    maxAge: parseDurationToSeconds(env.JWT_ACCESS_EXPIRES_IN),
-  });
-
-  reply.setCookie(REFRESH_TOKEN_COOKIE, refreshToken, {
-    ...cookieOptions,
-    maxAge: parseDurationToSeconds(env.JWT_REFRESH_EXPIRES_IN),
-  });
-}
-
-function clearAuthCookies(reply: FastifyReply): void {
-  reply.clearCookie(ACCESS_TOKEN_COOKIE, { path: '/' });
-  reply.clearCookie(REFRESH_TOKEN_COOKIE, { path: '/' });
-}
+// Tighter than the global 100/min (build-app.ts) — these routes are the highest-value brute-force
+// targets (credential stuffing on login, account enumeration on register, token guessing on refresh).
+// Relaxed under NODE_ENV=test: the integration suite legitimately registers/logs in far more than
+// 10 times per minute across a single spec file sharing one in-memory rate-limit store.
+const AUTH_RATE_LIMIT = { max: env.NODE_ENV === 'test' ? 1000 : 10, timeWindow: '1 minute' };
 
 export async function authRoutes(app: App) {
   const userRepository = new PrismaUserRepository(prisma);
   const passwordHasher = new BcryptPasswordHasher();
   const registerUserUseCase = new RegisterUserUseCase(userRepository, passwordHasher);
   const authenticateUserUseCase = new AuthenticateUserUseCase(userRepository, passwordHasher, tokenService);
-  const refreshUserSessionUseCase = new RefreshUserSessionUseCase(userRepository, tokenService);
+  const refreshUserSessionUseCase = new RefreshUserSessionUseCase(userRepository, tokenService, tokenRevocationService);
 
   app.route({
     method: 'POST',
     url: '/auth/register',
+    config: { rateLimit: AUTH_RATE_LIMIT },
     schema: {
       tags: ['Auth'],
       summary: 'Register a new user account',
@@ -101,6 +82,7 @@ export async function authRoutes(app: App) {
   app.route({
     method: 'POST',
     url: '/auth/login',
+    config: { rateLimit: AUTH_RATE_LIMIT },
     schema: {
       tags: ['Auth'],
       summary: 'Authenticate a user',
@@ -136,6 +118,7 @@ export async function authRoutes(app: App) {
   app.route({
     method: 'POST',
     url: '/auth/refresh',
+    config: { rateLimit: AUTH_RATE_LIMIT },
     schema: {
       tags: ['Auth'],
       summary: "Rotate the authenticated user's session",
@@ -209,13 +192,17 @@ export async function authRoutes(app: App) {
     schema: {
       tags: ['Auth'],
       summary: 'Log out the current user',
-      description: 'Clears the access and refresh token cookies.',
+      description:
+        'Clears the access and refresh token cookies, and revokes the refresh token server-side so a copy ' +
+        'leaked before logout can no longer be used to refresh the session.',
       response: {
         200: authSuccessResponseSchema,
         500: authErrorResponseSchema,
       },
     },
     handler: async (request, reply) => {
+      await revokeRefreshTokenIfPresent(request.cookies[REFRESH_TOKEN_COOKIE]);
+
       clearAuthCookies(reply);
 
       request.log.info('auth.logout_succeeded');

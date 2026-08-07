@@ -111,15 +111,22 @@ describe('Auth routes', () => {
       expect(JSON.stringify(body)).not.toMatch(/eyJ/); // no raw JWT leaked in the JSON body
 
       const cookieNames = extractCookieNames(response.headers['set-cookie']);
-      expect(cookieNames).toEqual(expect.arrayContaining(['access_token', 'refresh_token']));
+      expect(cookieNames).toEqual(expect.arrayContaining(['access_token', 'refresh_token', 'csrf_token']));
 
       const setCookieHeader = Array.isArray(response.headers['set-cookie'])
         ? response.headers['set-cookie']
         : [response.headers['set-cookie'] as string];
 
       for (const cookie of setCookieHeader) {
-        expect(cookie).toMatch(/HttpOnly/i);
         expect(cookie).toMatch(/SameSite=Strict/i);
+
+        // The CSRF cookie must be readable by frontend JS (double-submit pattern) — every other
+        // session cookie must stay HttpOnly.
+        if (cookie.startsWith('csrf_token=')) {
+          expect(cookie).not.toMatch(/HttpOnly/i);
+        } else {
+          expect(cookie).toMatch(/HttpOnly/i);
+        }
       }
     });
 
@@ -146,6 +153,19 @@ describe('Auth routes', () => {
       const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader as string];
       expect(cookies.some((cookie) => cookie.includes('access_token=;'))).toBe(true);
       expect(cookies.some((cookie) => cookie.includes('refresh_token=;'))).toBe(true);
+      expect(cookies.some((cookie) => cookie.includes('csrf_token=;'))).toBe(true);
+    });
+
+    it('revokes the refresh token so it can no longer be used to refresh the session', async () => {
+      const cookie = await registerAndLogin('logout-revoke@example.com');
+
+      const logoutResponse = await app.inject({ method: 'POST', url: '/auth/logout', headers: { cookie } });
+      expect(logoutResponse.statusCode).toBe(200);
+
+      const refreshResponse = await app.inject({ method: 'POST', url: '/auth/refresh', headers: { cookie } });
+
+      expect(refreshResponse.statusCode).toBe(401);
+      expect(refreshResponse.json().status).toBe('error');
     });
   });
 
@@ -182,6 +202,19 @@ describe('Auth routes', () => {
 
       expect(response.statusCode).toBe(401);
       expect(response.json().status).toBe('error');
+    });
+
+    it('rejects reuse of a refresh token that was already rotated (single-use enforcement)', async () => {
+      const cookie = await registerAndLogin('refresh-reuse@example.com');
+
+      const firstRefresh = await app.inject({ method: 'POST', url: '/auth/refresh', headers: { cookie } });
+      expect(firstRefresh.statusCode).toBe(200);
+
+      // Replay the original (now-rotated-away) refresh_token cookie.
+      const secondRefresh = await app.inject({ method: 'POST', url: '/auth/refresh', headers: { cookie } });
+
+      expect(secondRefresh.statusCode).toBe(401);
+      expect(secondRefresh.json().status).toBe('error');
     });
   });
 
