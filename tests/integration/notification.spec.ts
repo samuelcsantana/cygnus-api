@@ -28,7 +28,13 @@ describe('Notification routes', () => {
     return values.map((cookie) => cookie.split(';')[0]).join('; ');
   }
 
-  async function registerAndLogin(email: string): Promise<{ cookie: string; userId: string }> {
+  function extractCsrfToken(setCookieHeader: string | string[] | undefined): string {
+    const values = Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : [];
+    const csrfCookie = values.find((value) => value.startsWith('csrf_token='));
+    return csrfCookie ? csrfCookie.split(';')[0].split('=')[1] : '';
+  }
+
+  async function registerAndLogin(email: string): Promise<{ cookie: string; csrfToken: string; userId: string }> {
     const registerResponse = await app.inject({
       method: 'POST',
       url: '/auth/register',
@@ -41,14 +47,18 @@ describe('Notification routes', () => {
       payload: { email, password: 'S3cur3-Password' },
     });
 
-    return { cookie: extractCookieHeader(loginResponse.headers['set-cookie']), userId: registerResponse.json().id };
+    return {
+      cookie: extractCookieHeader(loginResponse.headers['set-cookie']),
+      csrfToken: extractCsrfToken(loginResponse.headers['set-cookie']),
+      userId: registerResponse.json().id,
+    };
   }
 
-  async function createBaby(cookie: string): Promise<string> {
+  async function createBaby(cookie: string, csrfToken: string): Promise<string> {
     const response = await app.inject({
       method: 'POST',
       url: '/babies',
-      headers: { cookie },
+      headers: { cookie, 'x-csrf-token': csrfToken },
       payload: { name: 'Baby', birthDate: '2024-01-01', gender: 'FEMALE' },
     });
 
@@ -75,13 +85,13 @@ describe('Notification routes', () => {
     it("lists only the authenticated user's notifications", async () => {
       const owner = await registerAndLogin('notif-owner@example.com');
       const other = await registerAndLogin('notif-other@example.com');
-      const ownerBabyId = await createBaby(owner.cookie);
-      const otherBabyId = await createBaby(other.cookie);
+      const ownerBabyId = await createBaby(owner.cookie, owner.csrfToken);
+      const otherBabyId = await createBaby(other.cookie, other.csrfToken);
 
       await seedNotification(owner.userId, ownerBabyId);
       await seedNotification(other.userId, otherBabyId);
 
-      const response = await app.inject({ method: 'GET', url: '/notifications', headers: { cookie: owner.cookie } });
+      const response = await app.inject({ method: 'GET', url: '/notifications', headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken } });
 
       expect(response.statusCode).toBe(200);
       const notifications = response.json();
@@ -98,13 +108,13 @@ describe('Notification routes', () => {
   describe('PATCH /notifications/:notificationId/read', () => {
     it('marks a notification as read', async () => {
       const owner = await registerAndLogin('notif-read@example.com');
-      const babyId = await createBaby(owner.cookie);
+      const babyId = await createBaby(owner.cookie, owner.csrfToken);
       const notificationId = await seedNotification(owner.userId, babyId);
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/notifications/${notificationId}/read`,
-        headers: { cookie: owner.cookie },
+        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
       });
 
       expect(response.statusCode).toBe(200);
@@ -115,13 +125,13 @@ describe('Notification routes', () => {
     it("returns 404 when marking another user's notification as read", async () => {
       const owner = await registerAndLogin('notif-read-owner@example.com');
       const intruder = await registerAndLogin('notif-read-intruder@example.com');
-      const babyId = await createBaby(owner.cookie);
+      const babyId = await createBaby(owner.cookie, owner.csrfToken);
       const notificationId = await seedNotification(owner.userId, babyId);
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/notifications/${notificationId}/read`,
-        headers: { cookie: intruder.cookie },
+        headers: { cookie: intruder.cookie, 'x-csrf-token': intruder.csrfToken },
       });
 
       expect(response.statusCode).toBe(404);
@@ -133,7 +143,7 @@ describe('Notification routes', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/notifications/00000000-0000-0000-0000-000000000000/read`,
-        headers: { cookie: owner.cookie },
+        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
       });
 
       expect(response.statusCode).toBe(404);

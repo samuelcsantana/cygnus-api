@@ -26,7 +26,13 @@ describe('Baby routes', () => {
     return values.map((cookie) => cookie.split(';')[0]).join('; ');
   }
 
-  async function registerAndLogin(email: string): Promise<string> {
+  function extractCsrfToken(setCookieHeader: string | string[] | undefined): string {
+    const values = Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : [];
+    const csrfCookie = values.find((value) => value.startsWith('csrf_token='));
+    return csrfCookie ? csrfCookie.split(';')[0].split('=')[1] : '';
+  }
+
+  async function registerAndLogin(email: string): Promise<{ cookie: string; csrfToken: string }> {
     await app.inject({
       method: 'POST',
       url: '/auth/register',
@@ -39,17 +45,20 @@ describe('Baby routes', () => {
       payload: { email, password: 'S3cur3-Password' },
     });
 
-    return extractCookieHeader(loginResponse.headers['set-cookie']);
+    return {
+      cookie: extractCookieHeader(loginResponse.headers['set-cookie']),
+      csrfToken: extractCsrfToken(loginResponse.headers['set-cookie']),
+    };
   }
 
   describe('POST /babies', () => {
     it('creates a baby profile owned by the authenticated user', async () => {
-      const cookie = await registerAndLogin('parent-create@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-create@example.com');
 
       const response = await app.inject({
         method: 'POST',
         url: '/babies',
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { name: 'Alice', birthDate: '2024-03-10', gender: 'FEMALE', allergies: ['lactose'] },
       });
 
@@ -67,13 +76,13 @@ describe('Baby routes', () => {
     });
 
     it('rejects a future birth date with 400', async () => {
-      const cookie = await registerAndLogin('parent-future@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-future@example.com');
       const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
       const response = await app.inject({
         method: 'POST',
         url: '/babies',
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { name: 'Future Baby', birthDate: futureDate, gender: 'MALE' },
       });
 
@@ -91,12 +100,12 @@ describe('Baby routes', () => {
     });
 
     it('accepts and returns an avatarColor', async () => {
-      const cookie = await registerAndLogin('parent-avatar-color@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-avatar-color@example.com');
 
       const response = await app.inject({
         method: 'POST',
         url: '/babies',
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { name: 'Alice', birthDate: '2024-03-10', gender: 'FEMALE', avatarColor: '#2A9D8F' },
       });
 
@@ -105,12 +114,12 @@ describe('Baby routes', () => {
     });
 
     it('rejects an avatarColor that is not a hex color', async () => {
-      const cookie = await registerAndLogin('parent-bad-avatar-color@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-bad-avatar-color@example.com');
 
       const response = await app.inject({
         method: 'POST',
         url: '/babies',
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { name: 'Alice', birthDate: '2024-03-10', gender: 'FEMALE', avatarColor: 'teal' },
       });
 
@@ -120,13 +129,13 @@ describe('Baby routes', () => {
 
   describe('user isolation', () => {
     it("prevents a user from reading, updating or listing another user's baby", async () => {
-      const ownerCookie = await registerAndLogin('owner@example.com');
-      const intruderCookie = await registerAndLogin('intruder@example.com');
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('owner@example.com');
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin('intruder@example.com');
 
       const createResponse = await app.inject({
         method: 'POST',
         url: '/babies',
-        headers: { cookie: ownerCookie },
+        headers: { cookie: ownerCookie, 'x-csrf-token': ownerCsrfToken },
         payload: { name: 'Bob', birthDate: '2023-06-01', gender: 'MALE' },
       });
 
@@ -135,14 +144,14 @@ describe('Baby routes', () => {
       const getAsIntruder = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
       });
       expect(getAsIntruder.statusCode).toBe(404);
 
       const updateAsIntruder = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
         payload: { name: 'Hacked Name' },
       });
       expect(updateAsIntruder.statusCode).toBe(404);
@@ -150,14 +159,14 @@ describe('Baby routes', () => {
       const deleteAsIntruder = await app.inject({
         method: 'DELETE',
         url: `/babies/${babyId}`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
       });
       expect(deleteAsIntruder.statusCode).toBe(404);
 
       const listAsIntruder = await app.inject({
         method: 'GET',
         url: '/babies',
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
       });
       expect(listAsIntruder.statusCode).toBe(200);
       expect(listAsIntruder.json()).toEqual([]);
@@ -165,7 +174,7 @@ describe('Baby routes', () => {
       const getAsOwner = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}`,
-        headers: { cookie: ownerCookie },
+        headers: { cookie: ownerCookie, 'x-csrf-token': ownerCsrfToken },
       });
       expect(getAsOwner.statusCode).toBe(200);
       expect(getAsOwner.json().name).toBe('Bob');
@@ -174,12 +183,12 @@ describe('Baby routes', () => {
 
   describe('PATCH /babies/:babyId', () => {
     it('updates only the provided fields', async () => {
-      const cookie = await registerAndLogin('parent-update@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-update@example.com');
 
       const createResponse = await app.inject({
         method: 'POST',
         url: '/babies',
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { name: 'Carla', birthDate: '2022-11-20', gender: 'FEMALE' },
       });
       const babyId = createResponse.json().id;
@@ -187,7 +196,7 @@ describe('Baby routes', () => {
       const updateResponse = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { bloodType: 'O+' },
       });
 
@@ -199,12 +208,12 @@ describe('Baby routes', () => {
     });
 
     it('updates the avatarColor independently of the avatarUrl', async () => {
-      const cookie = await registerAndLogin('parent-update-avatar-color@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-update-avatar-color@example.com');
 
       const createResponse = await app.inject({
         method: 'POST',
         url: '/babies',
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { name: 'Dora', birthDate: '2022-11-20', gender: 'FEMALE' },
       });
       const babyId = createResponse.json().id;
@@ -212,7 +221,7 @@ describe('Baby routes', () => {
       const updateResponse = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { avatarColor: '#F4A261' },
       });
 
@@ -223,12 +232,12 @@ describe('Baby routes', () => {
     });
 
     it('returns 404 for a non-existent baby', async () => {
-      const cookie = await registerAndLogin('parent-missing@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-missing@example.com');
 
       const response = await app.inject({
         method: 'PATCH',
         url: '/babies/00000000-0000-0000-0000-000000000000',
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { name: 'Nobody' },
       });
 
@@ -238,12 +247,12 @@ describe('Baby routes', () => {
 
   describe('DELETE /babies/:babyId', () => {
     it('deletes the baby and cascades to its dependent records', async () => {
-      const cookie = await registerAndLogin('parent-delete@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-delete@example.com');
 
       const createResponse = await app.inject({
         method: 'POST',
         url: '/babies',
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { name: 'Dana', birthDate: '2023-02-14', gender: 'FEMALE' },
       });
       const babyId = createResponse.json().id;
@@ -251,25 +260,25 @@ describe('Baby routes', () => {
       const deleteResponse = await app.inject({
         method: 'DELETE',
         url: `/babies/${babyId}`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
       });
       expect(deleteResponse.statusCode).toBe(204);
 
       const getAfterDelete = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
       });
       expect(getAfterDelete.statusCode).toBe(404);
     });
 
     it('returns 404 for a non-existent baby', async () => {
-      const cookie = await registerAndLogin('parent-delete-missing@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-delete-missing@example.com');
 
       const response = await app.inject({
         method: 'DELETE',
         url: '/babies/00000000-0000-0000-0000-000000000000',
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
       expect(response.statusCode).toBe(404);
