@@ -39,6 +39,11 @@ function toDomain(record: BabyVaccineRecordRow): BabyVaccineRecord {
 export class PrismaBabyVaccineRecordRepository implements BabyVaccineRecordRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
+  async findById(id: string): Promise<BabyVaccineRecord | null> {
+    const record = await this.prisma.babyVaccineRecord.findUnique({ where: { id } });
+    return record ? toDomain(record) : null;
+  }
+
   async findAllByBabyId(babyId: string): Promise<BabyVaccineRecord[]> {
     const records = await this.prisma.babyVaccineRecord.findMany({ where: { babyId } });
     return records.map(toDomain);
@@ -101,5 +106,9 @@ export class PrismaBabyVaccineRecordRepository implements BabyVaccineRecordRepos
         photoUrl: record.photoUrl,
       },
     });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.babyVaccineRecord.delete({ where: { id } });
   }
 }

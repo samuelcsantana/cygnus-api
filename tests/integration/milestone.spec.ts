@@ -27,7 +27,13 @@ describe('Milestone routes', () => {
     return values.map((cookie) => cookie.split(';')[0]).join('; ');
   }
 
-  async function registerAndLogin(email: string): Promise<string> {
+  function extractCsrfToken(setCookieHeader: string | string[] | undefined): string {
+    const values = Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : [];
+    const csrfCookie = values.find((value) => value.startsWith('csrf_token='));
+    return csrfCookie ? csrfCookie.split(';')[0].split('=')[1] : '';
+  }
+
+  async function registerAndLogin(email: string): Promise<{ cookie: string; csrfToken: string }> {
     await app.inject({
       method: 'POST',
       url: '/auth/register',
@@ -40,14 +46,17 @@ describe('Milestone routes', () => {
       payload: { email, password: 'S3cur3-Password' },
     });
 
-    return extractCookieHeader(loginResponse.headers['set-cookie']);
+    return {
+      cookie: extractCookieHeader(loginResponse.headers['set-cookie']),
+      csrfToken: extractCsrfToken(loginResponse.headers['set-cookie']),
+    };
   }
 
-  async function createBaby(cookie: string, birthDate: string): Promise<string> {
+  async function createBaby(cookie: string, csrfToken: string, birthDate: string): Promise<string> {
     const response = await app.inject({
       method: 'POST',
       url: '/babies',
-      headers: { cookie },
+      headers: { cookie, 'x-csrf-token': csrfToken },
       payload: { name: 'Baby', birthDate, gender: 'FEMALE' },
     });
 
@@ -56,13 +65,13 @@ describe('Milestone routes', () => {
 
   describe('POST /babies/:babyId/milestones', () => {
     it('records a new milestone', async () => {
-      const cookie = await registerAndLogin('parent-milestone@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-milestone@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
 
       const response = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/milestones`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: {
           title: 'Primeiro sorriso',
           achievedAt: '2024-03-01',
@@ -82,14 +91,14 @@ describe('Milestone routes', () => {
     });
 
     it('rejects an achievedAt in the future', async () => {
-      const cookie = await registerAndLogin('parent-future-milestone@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-future-milestone@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
       const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
       const response = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/milestones`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { title: 'Andar', achievedAt: futureDate, category: 'MOTOR' },
       });
 
@@ -97,13 +106,13 @@ describe('Milestone routes', () => {
     });
 
     it("rejects an achievedAt before the baby's birth date", async () => {
-      const cookie = await registerAndLogin('parent-before-birth@example.com');
-      const babyId = await createBaby(cookie, '2024-06-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-before-birth@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-06-01');
 
       const response = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/milestones`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { title: 'Impossível', achievedAt: '2024-01-01', category: 'OTHER' },
       });
 
@@ -111,14 +120,14 @@ describe('Milestone routes', () => {
     });
 
     it("rejects recording for another user's baby", async () => {
-      const ownerCookie = await registerAndLogin('milestone-owner@example.com');
-      const intruderCookie = await registerAndLogin('milestone-intruder@example.com');
-      const babyId = await createBaby(ownerCookie, '2024-01-01');
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('milestone-owner@example.com');
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin('milestone-intruder@example.com');
+      const babyId = await createBaby(ownerCookie, ownerCsrfToken, '2024-01-01');
 
       const response = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/milestones`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
         payload: { title: 'Primeiro sorriso', achievedAt: '2024-03-01', category: 'SOCIAL' },
       });
 
@@ -128,23 +137,23 @@ describe('Milestone routes', () => {
 
   describe('GET /babies/:babyId/milestones', () => {
     it('lists milestones ordered by achieved date', async () => {
-      const cookie = await registerAndLogin('parent-list-milestones@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-list-milestones@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
 
       await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/milestones`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { title: 'Segundo marco', achievedAt: '2024-06-01', category: 'MOTOR' },
       });
       await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/milestones`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { title: 'Primeiro marco', achievedAt: '2024-03-01', category: 'SOCIAL' },
       });
 
-      const response = await app.inject({ method: 'GET', url: `/babies/${babyId}/milestones`, headers: { cookie } });
+      const response = await app.inject({ method: 'GET', url: `/babies/${babyId}/milestones`, headers: { cookie, 'x-csrf-token': csrfToken } });
 
       expect(response.statusCode).toBe(200);
       const milestones = response.json();
@@ -156,13 +165,13 @@ describe('Milestone routes', () => {
 
   describe('PATCH /babies/:babyId/milestones/:milestoneId', () => {
     it('updates only the provided fields', async () => {
-      const cookie = await registerAndLogin('parent-update-milestone@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-update-milestone@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
 
       const createResponse = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/milestones`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { title: 'Primeiro sorriso', achievedAt: '2024-03-01', category: 'SOCIAL' },
       });
       const milestoneId = createResponse.json().id;
@@ -170,7 +179,7 @@ describe('Milestone routes', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}/milestones/${milestoneId}`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { photoUrl: 'https://example.com/photo.jpg' },
       });
 
@@ -182,14 +191,14 @@ describe('Milestone routes', () => {
     });
 
     it('returns 404 when updating a milestone that belongs to another user', async () => {
-      const ownerCookie = await registerAndLogin('milestone-update-owner@example.com');
-      const intruderCookie = await registerAndLogin('milestone-update-intruder@example.com');
-      const babyId = await createBaby(ownerCookie, '2024-01-01');
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('milestone-update-owner@example.com');
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin('milestone-update-intruder@example.com');
+      const babyId = await createBaby(ownerCookie, ownerCsrfToken, '2024-01-01');
 
       const createResponse = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/milestones`,
-        headers: { cookie: ownerCookie },
+        headers: { cookie: ownerCookie, 'x-csrf-token': ownerCsrfToken },
         payload: { title: 'Primeiro sorriso', achievedAt: '2024-03-01', category: 'SOCIAL' },
       });
       const milestoneId = createResponse.json().id;
@@ -197,11 +206,100 @@ describe('Milestone routes', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}/milestones/${milestoneId}`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
         payload: { title: 'Hacked' },
       });
 
       expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe('DELETE /babies/:babyId/milestones/:milestoneId', () => {
+    it('deletes the milestone', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-delete-milestone@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/milestones`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { title: 'Primeiro sorriso', achievedAt: '2024-03-01', category: 'SOCIAL' },
+      });
+      const milestoneId = createResponse.json().id;
+
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/milestones/${milestoneId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(deleteResponse.statusCode).toBe(204);
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/milestones/${milestoneId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(getResponse.statusCode).toBe(404);
+    });
+
+    it('returns 404 when deleting a milestone that belongs to another user', async () => {
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin(
+        'milestone-delete-owner@example.com',
+      );
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin(
+        'milestone-delete-intruder@example.com',
+      );
+      const babyId = await createBaby(ownerCookie, ownerCsrfToken, '2024-01-01');
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/milestones`,
+        headers: { cookie: ownerCookie, 'x-csrf-token': ownerCsrfToken },
+        payload: { title: 'Primeiro sorriso', achievedAt: '2024-03-01', category: 'SOCIAL' },
+      });
+      const milestoneId = createResponse.json().id;
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/milestones/${milestoneId}`,
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('returns 404 for a milestone that does not exist', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-delete-missing-milestone@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/milestones/00000000-0000-0000-0000-000000000000`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('rejects a mutating request without a matching CSRF header with 403', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-csrf-milestone@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/milestones`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { title: 'Primeiro sorriso', achievedAt: '2024-03-01', category: 'SOCIAL' },
+      });
+      const milestoneId = createResponse.json().id;
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/milestones/${milestoneId}`,
+        headers: { cookie },
+      });
+
+      expect(response.statusCode).toBe(403);
     });
   });
 
@@ -213,5 +311,6 @@ describe('Milestone routes', () => {
     expect(openApiDocument.paths['/babies/{babyId}/milestones'].get.tags).toContain('Milestones');
     expect(openApiDocument.paths['/babies/{babyId}/milestones/{milestoneId}'].get.tags).toContain('Milestones');
     expect(openApiDocument.paths['/babies/{babyId}/milestones/{milestoneId}'].patch.tags).toContain('Milestones');
+    expect(openApiDocument.paths['/babies/{babyId}/milestones/{milestoneId}'].delete.tags).toContain('Milestones');
   });
 });

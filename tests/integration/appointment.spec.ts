@@ -27,7 +27,13 @@ describe('Appointment routes', () => {
     return values.map((cookie) => cookie.split(';')[0]).join('; ');
   }
 
-  async function registerAndLogin(email: string): Promise<string> {
+  function extractCsrfToken(setCookieHeader: string | string[] | undefined): string {
+    const values = Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : [];
+    const csrfCookie = values.find((value) => value.startsWith('csrf_token='));
+    return csrfCookie ? csrfCookie.split(';')[0].split('=')[1] : '';
+  }
+
+  async function registerAndLogin(email: string): Promise<{ cookie: string; csrfToken: string }> {
     await app.inject({
       method: 'POST',
       url: '/auth/register',
@@ -40,14 +46,17 @@ describe('Appointment routes', () => {
       payload: { email, password: 'S3cur3-Password' },
     });
 
-    return extractCookieHeader(loginResponse.headers['set-cookie']);
+    return {
+      cookie: extractCookieHeader(loginResponse.headers['set-cookie']),
+      csrfToken: extractCsrfToken(loginResponse.headers['set-cookie']),
+    };
   }
 
-  async function createBaby(cookie: string): Promise<string> {
+  async function createBaby(cookie: string, csrfToken: string): Promise<string> {
     const response = await app.inject({
       method: 'POST',
       url: '/babies',
-      headers: { cookie },
+      headers: { cookie, 'x-csrf-token': csrfToken },
       payload: { name: 'Baby', birthDate: '2024-01-01', gender: 'FEMALE' },
     });
 
@@ -60,13 +69,13 @@ describe('Appointment routes', () => {
 
   describe('POST /babies/:babyId/appointments', () => {
     it('schedules a new appointment', async () => {
-      const cookie = await registerAndLogin('parent-schedule@example.com');
-      const babyId = await createBaby(cookie);
+      const { cookie, csrfToken } = await registerAndLogin('parent-schedule@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
 
       const response = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/appointments`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: {
           scheduledAt: futureIsoString(7),
           doctorName: 'Dr. Ana Souza',
@@ -88,13 +97,13 @@ describe('Appointment routes', () => {
     });
 
     it('rejects scheduling an appointment in the past', async () => {
-      const cookie = await registerAndLogin('parent-past@example.com');
-      const babyId = await createBaby(cookie);
+      const { cookie, csrfToken } = await registerAndLogin('parent-past@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
 
       const response = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/appointments`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { scheduledAt: '2020-01-01T10:00:00.000Z', doctorName: 'Dr. Ana Souza' },
       });
 
@@ -102,14 +111,14 @@ describe('Appointment routes', () => {
     });
 
     it("rejects scheduling for another user's baby", async () => {
-      const ownerCookie = await registerAndLogin('appt-owner@example.com');
-      const intruderCookie = await registerAndLogin('appt-intruder@example.com');
-      const babyId = await createBaby(ownerCookie);
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('appt-owner@example.com');
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin('appt-intruder@example.com');
+      const babyId = await createBaby(ownerCookie, ownerCsrfToken);
 
       const response = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/appointments`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
         payload: { scheduledAt: futureIsoString(7), doctorName: 'Dr. Ana Souza' },
       });
 
@@ -119,23 +128,23 @@ describe('Appointment routes', () => {
 
   describe('GET /babies/:babyId/appointments', () => {
     it("lists only the baby's own appointments, ordered by scheduled date", async () => {
-      const cookie = await registerAndLogin('parent-list@example.com');
-      const babyId = await createBaby(cookie);
+      const { cookie, csrfToken } = await registerAndLogin('parent-list@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
 
       await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/appointments`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { scheduledAt: futureIsoString(14), doctorName: 'Dr. Second Visit' },
       });
       await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/appointments`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { scheduledAt: futureIsoString(7), doctorName: 'Dr. First Visit' },
       });
 
-      const response = await app.inject({ method: 'GET', url: `/babies/${babyId}/appointments`, headers: { cookie } });
+      const response = await app.inject({ method: 'GET', url: `/babies/${babyId}/appointments`, headers: { cookie, 'x-csrf-token': csrfToken } });
 
       expect(response.statusCode).toBe(200);
       const appointments = response.json();
@@ -147,13 +156,13 @@ describe('Appointment routes', () => {
 
   describe('PATCH /babies/:babyId/appointments/:appointmentId', () => {
     it('marks an appointment as completed and adds notes, even after its scheduled time has passed', async () => {
-      const cookie = await registerAndLogin('parent-complete@example.com');
-      const babyId = await createBaby(cookie);
+      const { cookie, csrfToken } = await registerAndLogin('parent-complete@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
 
       const createResponse = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/appointments`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { scheduledAt: futureIsoString(1), doctorName: 'Dr. Ana Souza' },
       });
       const appointmentId = createResponse.json().id;
@@ -167,7 +176,7 @@ describe('Appointment routes', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}/appointments/${appointmentId}`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { status: 'COMPLETED', notes: 'Baby is healthy' },
       });
 
@@ -178,13 +187,13 @@ describe('Appointment routes', () => {
     });
 
     it('rejects rescheduling to a past date', async () => {
-      const cookie = await registerAndLogin('parent-reschedule@example.com');
-      const babyId = await createBaby(cookie);
+      const { cookie, csrfToken } = await registerAndLogin('parent-reschedule@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
 
       const createResponse = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/appointments`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { scheduledAt: futureIsoString(7), doctorName: 'Dr. Ana Souza' },
       });
       const appointmentId = createResponse.json().id;
@@ -192,7 +201,7 @@ describe('Appointment routes', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}/appointments/${appointmentId}`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { scheduledAt: '2020-01-01T10:00:00.000Z' },
       });
 
@@ -200,14 +209,14 @@ describe('Appointment routes', () => {
     });
 
     it('returns 404 when updating an appointment that belongs to another user', async () => {
-      const ownerCookie = await registerAndLogin('appt-update-owner@example.com');
-      const intruderCookie = await registerAndLogin('appt-update-intruder@example.com');
-      const babyId = await createBaby(ownerCookie);
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('appt-update-owner@example.com');
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin('appt-update-intruder@example.com');
+      const babyId = await createBaby(ownerCookie, ownerCsrfToken);
 
       const createResponse = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/appointments`,
-        headers: { cookie: ownerCookie },
+        headers: { cookie: ownerCookie, 'x-csrf-token': ownerCsrfToken },
         payload: { scheduledAt: futureIsoString(7), doctorName: 'Dr. Ana Souza' },
       });
       const appointmentId = createResponse.json().id;
@@ -215,7 +224,7 @@ describe('Appointment routes', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}/appointments/${appointmentId}`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
         payload: { status: 'CANCELLED' },
       });
 

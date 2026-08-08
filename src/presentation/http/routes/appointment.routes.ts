@@ -10,6 +10,7 @@ import { DomainError } from '../../../shared/errors/domain-error';
 import { PrismaBabyRepository } from '../../../infrastructure/database/repositories/prisma-baby.repository';
 import { PrismaAppointmentRepository } from '../../../infrastructure/database/repositories/prisma-appointment.repository';
 import { prisma } from '../../../infrastructure/database/prisma-client';
+import { auditLogger } from '../../../infrastructure/audit/audit-logger.instance';
 import { authenticate } from '../plugins/authenticate';
 import { authErrorResponseSchema } from '../schemas/auth.schema';
 import {
@@ -72,6 +73,14 @@ export async function appointmentRoutes(app: App) {
           specialty: request.body.specialty,
           location: request.body.location,
           reason: request.body.reason,
+        });
+
+        auditLogger.log({
+          userId: request.userId,
+          action: 'appointment.create',
+          resourceType: 'Appointment',
+          resourceId: appointment.id,
+          babyId: appointment.babyId,
         });
 
         return reply.status(201).send(toResponse(appointment));
@@ -189,6 +198,14 @@ export async function appointmentRoutes(app: App) {
           reason: request.body.reason,
           notes: request.body.notes,
           status: request.body.status,
+        });
+
+        auditLogger.log({
+          userId: request.userId,
+          action: 'appointment.update',
+          resourceType: 'Appointment',
+          resourceId: appointment.id,
+          babyId: appointment.babyId,
         });
 
         return reply.status(200).send(toResponse(appointment));

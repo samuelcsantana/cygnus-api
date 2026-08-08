@@ -1,11 +1,14 @@
+import { z } from 'zod';
 import type { App } from '../../../infrastructure/http/build-app';
 import { AgeGroupSchedule } from '../../../application/vaccine/get-baby-vaccine-schedule.use-case';
 import { GetBabyVaccineScheduleUseCase } from '../../../application/vaccine/get-baby-vaccine-schedule.use-case';
 import { MarkVaccineAsAppliedUseCase } from '../../../application/vaccine/mark-vaccine-as-applied.use-case';
 import { RegisterAdhocVaccineUseCase } from '../../../application/vaccine/register-adhoc-vaccine.use-case';
 import { ListAdhocVaccineRecordsUseCase } from '../../../application/vaccine/list-adhoc-vaccine-records.use-case';
+import { DeleteAdhocVaccineRecordUseCase } from '../../../application/vaccine/delete-adhoc-vaccine-record.use-case';
 import { BabyNotFoundError } from '../../../application/baby/errors/baby-not-found.error';
 import { VaccineNotFoundError } from '../../../application/vaccine/errors/vaccine-not-found.error';
+import { VaccineRecordNotFoundError } from '../../../application/vaccine/errors/vaccine-record-not-found.error';
 import { DomainError } from '../../../shared/errors/domain-error';
 import { BabyVaccineRecord } from '../../../domain/vaccine/baby-vaccine-record';
 import { PrismaBabyRepository } from '../../../infrastructure/database/repositories/prisma-baby.repository';
@@ -14,10 +17,12 @@ import { CachedVaccineRepository } from '../../../infrastructure/database/reposi
 import { PrismaBabyVaccineRecordRepository } from '../../../infrastructure/database/repositories/prisma-baby-vaccine-record.repository';
 import { prisma } from '../../../infrastructure/database/prisma-client';
 import { redis } from '../../../infrastructure/cache/redis-client';
+import { auditLogger } from '../../../infrastructure/audit/audit-logger.instance';
 import { authenticate } from '../plugins/authenticate';
 import { authErrorResponseSchema } from '../schemas/auth.schema';
 import {
   adhocVaccineListResponseSchema,
+  adhocVaccineRecordParamsSchema,
   adhocVaccineRecordResponseSchema,
   markVaccineAppliedBodySchema,
   markVaccineAppliedParamsSchema,
@@ -84,6 +89,10 @@ export async function vaccineRoutes(app: App) {
   );
   const registerAdhocVaccineUseCase = new RegisterAdhocVaccineUseCase(babyRepository, babyVaccineRecordRepository);
   const listAdhocVaccineRecordsUseCase = new ListAdhocVaccineRecordsUseCase(babyRepository, babyVaccineRecordRepository);
+  const deleteAdhocVaccineRecordUseCase = new DeleteAdhocVaccineRecordUseCase(
+    babyRepository,
+    babyVaccineRecordRepository,
+  );
 
   app.route({
     method: 'GET',
@@ -155,6 +164,14 @@ export async function vaccineRoutes(app: App) {
         });
 
         const vaccine = await vaccineRepository.findById(request.params.vaccineId);
+
+        auditLogger.log({
+          userId: request.userId,
+          action: 'vaccine.apply',
+          resourceType: 'BabyVaccineRecord',
+          resourceId: record.id,
+          babyId: record.babyId,
+        });
 
         return reply.status(200).send({
           vaccineId: request.params.vaccineId,
@@ -252,6 +269,14 @@ export async function vaccineRoutes(app: App) {
           photoUrl: request.body.photoUrl,
         });
 
+        auditLogger.log({
+          userId: request.userId,
+          action: 'vaccine.adhoc-create',
+          resourceType: 'BabyVaccineRecord',
+          resourceId: record.id,
+          babyId: record.babyId,
+        });
+
         return reply.status(201).send(toAdhocResponse(record));
       } catch (error) {
         if (error instanceof BabyNotFoundError) {
@@ -260,6 +285,51 @@ export async function vaccineRoutes(app: App) {
 
         if (error instanceof DomainError) {
           return reply.status(400).send({ status: 'error', message: error.message });
+        }
+
+        throw error;
+      }
+    },
+  });
+
+  app.route({
+    method: 'DELETE',
+    url: '/babies/:babyId/vaccines/adhoc/:recordId',
+    preHandler: authenticate,
+    schema: {
+      tags: ['Vaccines'],
+      summary: 'Delete a campaign or custom vaccine record',
+      description:
+        'Removes a vaccine that was logged by hand (a vaccination campaign or a fully custom entry) — used ' +
+        'to undo a wrong custom/campaign entry. Does not apply to vaccines applied from the catalog schedule.',
+      params: adhocVaccineRecordParamsSchema,
+      response: {
+        204: z.null().describe('Vaccine record deleted successfully'),
+        401: authErrorResponseSchema,
+        404: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        await deleteAdhocVaccineRecordUseCase.execute({
+          babyId: request.params.babyId,
+          recordId: request.params.recordId,
+          requestingUserId: request.userId,
+        });
+
+        auditLogger.log({
+          userId: request.userId,
+          action: 'vaccine.delete',
+          resourceType: 'BabyVaccineRecord',
+          resourceId: request.params.recordId,
+          babyId: request.params.babyId,
+        });
+
+        return reply.status(204).send(null);
+      } catch (error) {
+        if (error instanceof BabyNotFoundError || error instanceof VaccineRecordNotFoundError) {
+          return reply.status(404).send({ status: 'error', message: error.message });
         }
 
         throw error;

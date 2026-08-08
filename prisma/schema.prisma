@@ -160,3 +160,19 @@ model Notification {
   @@index([userId])
   @@map("notifications")
 }
+
+// Lightweight audit trail for who touched a child's health data (vaccines, appointments,
+// milestones) and when — not a full change-history/versioning table, just an append-only log.
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String   @map("resource_id")
+  babyId       String?  @map("baby_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([babyId])
+  @@index([userId])
+  @@map("audit_logs")
+}

@@ -49,10 +49,12 @@ export function buildBabyVaccineRecordRepository(
   overrides: Partial<BabyVaccineRecordRepository> = {},
 ): BabyVaccineRecordRepository {
   return {
+    findById: vi.fn().mockResolvedValue(null),
     findAllByBabyId: vi.fn().mockResolvedValue([]),
     findByBabyAndVaccine: vi.fn().mockResolvedValue(null),
     save: vi.fn().mockResolvedValue(undefined),
     create: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

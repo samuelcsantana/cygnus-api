@@ -12,6 +12,11 @@ export const markVaccineAppliedParamsSchema = z.object({
   vaccineId: z.string().uuid(),
 });
 
+export const adhocVaccineRecordParamsSchema = z.object({
+  babyId: z.string().uuid(),
+  recordId: z.string().uuid(),
+});
+
 export const markVaccineAppliedBodySchema = z.object({
   applicationDate: dateOnlySchema.optional().describe('Defaults to today when omitted'),
   notes: z.string().optional(),

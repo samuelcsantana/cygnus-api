@@ -45,6 +45,7 @@ export function buildMilestoneRepository(overrides: Partial<MilestoneRepository>
     findById: vi.fn().mockResolvedValue(null),
     findAllByBabyId: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

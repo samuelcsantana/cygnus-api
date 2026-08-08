@@ -61,4 +61,8 @@ export class PrismaMilestoneRepository implements MilestoneRepository {
       },
     });
   }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.milestone.delete({ where: { id } });
+  }
 }

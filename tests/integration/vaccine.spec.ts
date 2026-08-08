@@ -36,7 +36,13 @@ describe('Vaccine routes', () => {
     return values.map((cookie) => cookie.split(';')[0]).join('; ');
   }
 
-  async function registerAndLogin(email: string): Promise<string> {
+  function extractCsrfToken(setCookieHeader: string | string[] | undefined): string {
+    const values = Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : [];
+    const csrfCookie = values.find((value) => value.startsWith('csrf_token='));
+    return csrfCookie ? csrfCookie.split(';')[0].split('=')[1] : '';
+  }
+
+  async function registerAndLogin(email: string): Promise<{ cookie: string; csrfToken: string }> {
     await app.inject({
       method: 'POST',
       url: '/auth/register',
@@ -49,14 +55,17 @@ describe('Vaccine routes', () => {
       payload: { email, password: 'S3cur3-Password' },
     });
 
-    return extractCookieHeader(loginResponse.headers['set-cookie']);
+    return {
+      cookie: extractCookieHeader(loginResponse.headers['set-cookie']),
+      csrfToken: extractCsrfToken(loginResponse.headers['set-cookie']),
+    };
   }
 
-  async function createBaby(cookie: string, birthDate: string): Promise<string> {
+  async function createBaby(cookie: string, csrfToken: string, birthDate: string): Promise<string> {
     const response = await app.inject({
       method: 'POST',
       url: '/babies',
-      headers: { cookie },
+      headers: { cookie, 'x-csrf-token': csrfToken },
       payload: { name: 'Baby', birthDate, gender: 'FEMALE' },
     });
 
@@ -65,37 +74,52 @@ describe('Vaccine routes', () => {
 
   describe('GET /babies/:babyId/vaccines', () => {
     it('returns the schedule grouped by age, marking overdue doses as DELAYED', async () => {
-      const cookie = await registerAndLogin('parent-schedule@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-schedule@example.com');
       const oldBirthDate = new Date();
       oldBirthDate.setUTCMonth(oldBirthDate.getUTCMonth() - 6);
-      const babyId = await createBaby(cookie, oldBirthDate.toISOString().slice(0, 10));
+      const babyId = await createBaby(cookie, csrfToken, oldBirthDate.toISOString().slice(0, 10));
 
       const response = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}/vaccines`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
       expect(response.statusCode).toBe(200);
 
       const schedule = response.json();
       expect(Array.isArray(schedule)).toBe(true);
-      expect(schedule.map((group: { ageInMonths: number }) => group.ageInMonths)).toEqual([0, 2]);
 
-      const allItems = schedule.flatMap((group: { items: unknown[] }) => group.items);
+      const expectedAges = [...new Set(VACCINE_CATALOG_SEED.map((vaccine) => vaccine.recommendedAgeInMonths))].sort(
+        (a, b) => a - b,
+      );
+      expect(schedule.map((group: { ageInMonths: number }) => group.ageInMonths)).toEqual(expectedAges);
+
+      const allItems = schedule.flatMap(
+        (group: { items: { recommendedAgeInMonths: number; status: string }[] }) => group.items,
+      );
       expect(allItems).toHaveLength(VACCINE_CATALOG_SEED.length);
-      expect(allItems.every((item: { status: string }) => item.status === 'DELAYED')).toBe(true);
+
+      // The baby is 6 months old: doses due before 6 months are overdue (never applied). Doses
+      // due at exactly 6 months are due "today", which the domain treats as PENDING, not DELAYED
+      // (see BabyVaccineRecord.derive) — so the 6-month boundary itself goes in notYetDueItems.
+      const dueItems = allItems.filter((item) => item.recommendedAgeInMonths < 6);
+      const notYetDueItems = allItems.filter((item) => item.recommendedAgeInMonths >= 6);
+      expect(dueItems.length).toBeGreaterThan(0);
+      expect(notYetDueItems.length).toBeGreaterThan(0);
+      expect(dueItems.every((item) => item.status === 'DELAYED')).toBe(true);
+      expect(notYetDueItems.every((item) => item.status === 'PENDING')).toBe(true);
     });
 
     it('returns PENDING for a newborn whose doses are not due yet', async () => {
-      const cookie = await registerAndLogin('parent-newborn@example.com');
+      const { cookie, csrfToken } = await registerAndLogin('parent-newborn@example.com');
       const today = new Date().toISOString().slice(0, 10);
-      const babyId = await createBaby(cookie, today);
+      const babyId = await createBaby(cookie, csrfToken, today);
 
       const response = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}/vaccines`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
       const schedule = response.json();
@@ -107,14 +131,14 @@ describe('Vaccine routes', () => {
     });
 
     it("prevents a user from reading another user's baby vaccine schedule", async () => {
-      const ownerCookie = await registerAndLogin('vaccine-owner@example.com');
-      const intruderCookie = await registerAndLogin('vaccine-intruder@example.com');
-      const babyId = await createBaby(ownerCookie, '2024-01-01');
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('vaccine-owner@example.com');
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin('vaccine-intruder@example.com');
+      const babyId = await createBaby(ownerCookie, ownerCsrfToken, '2024-01-01');
 
       const response = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}/vaccines`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
       });
 
       expect(response.statusCode).toBe(404);
@@ -123,14 +147,14 @@ describe('Vaccine routes', () => {
 
   describe('PATCH /babies/:babyId/vaccines/:vaccineId/apply', () => {
     it('marks a vaccine as applied and reflects it in the schedule', async () => {
-      const cookie = await registerAndLogin('parent-apply@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-apply@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
       const vaccine = await prisma.vaccine.findFirstOrThrow({ where: { recommendedAgeInMonths: 0 } });
 
       const applyResponse = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}/vaccines/${vaccine.id}/apply`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { applicationDate: '2024-01-05', notes: 'Applied at the maternity ward' },
       });
 
@@ -145,7 +169,7 @@ describe('Vaccine routes', () => {
       const scheduleResponse = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}/vaccines`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
       const schedule = scheduleResponse.json();
@@ -157,14 +181,14 @@ describe('Vaccine routes', () => {
     });
 
     it('stores and returns batch number, location, professional and photo details', async () => {
-      const cookie = await registerAndLogin('parent-apply-details@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-apply-details@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
       const vaccine = await prisma.vaccine.findFirstOrThrow({ where: { recommendedAgeInMonths: 0 } });
 
       const applyResponse = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}/vaccines/${vaccine.id}/apply`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: {
           applicationDate: '2024-01-05',
           batchNumber: 'LOT-123',
@@ -185,7 +209,7 @@ describe('Vaccine routes', () => {
       const scheduleResponse = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}/vaccines`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
       const schedule = scheduleResponse.json();
@@ -202,13 +226,13 @@ describe('Vaccine routes', () => {
     });
 
     it('returns null detail fields for a vaccine that has not been applied yet', async () => {
-      const cookie = await registerAndLogin('parent-schedule-nulls@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-schedule-nulls@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
 
       const scheduleResponse = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}/vaccines`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
       const schedule = scheduleResponse.json();
@@ -226,15 +250,15 @@ describe('Vaccine routes', () => {
     });
 
     it('returns 404 when marking a baby that belongs to another user', async () => {
-      const ownerCookie = await registerAndLogin('apply-owner@example.com');
-      const intruderCookie = await registerAndLogin('apply-intruder@example.com');
-      const babyId = await createBaby(ownerCookie, '2024-01-01');
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('apply-owner@example.com');
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin('apply-intruder@example.com');
+      const babyId = await createBaby(ownerCookie, ownerCsrfToken, '2024-01-01');
       const vaccine = await prisma.vaccine.findFirstOrThrow({ where: { recommendedAgeInMonths: 0 } });
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}/vaccines/${vaccine.id}/apply`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
         payload: {},
       });
 
@@ -242,13 +266,13 @@ describe('Vaccine routes', () => {
     });
 
     it('returns 404 for a vaccine id that does not exist in the catalog', async () => {
-      const cookie = await registerAndLogin('parent-unknown-vaccine@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-unknown-vaccine@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
 
       const response = await app.inject({
         method: 'PATCH',
         url: `/babies/${babyId}/vaccines/00000000-0000-0000-0000-000000000000/apply`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: {},
       });
 
@@ -258,13 +282,13 @@ describe('Vaccine routes', () => {
 
   describe('POST /babies/:babyId/vaccines/adhoc', () => {
     it('registers a campaign vaccine as already applied', async () => {
-      const cookie = await registerAndLogin('parent-adhoc-register@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-adhoc-register@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
 
       const response = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/vaccines/adhoc`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: {
           source: 'CAMPAIGN',
           customName: 'Influenza — Campanha anual',
@@ -285,13 +309,13 @@ describe('Vaccine routes', () => {
     });
 
     it('rejects an empty custom name with 400', async () => {
-      const cookie = await registerAndLogin('parent-adhoc-invalid@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-adhoc-invalid@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
 
       const response = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/vaccines/adhoc`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { source: 'CUSTOM', customName: '   ', applicationDate: '2024-06-01' },
       });
 
@@ -299,14 +323,14 @@ describe('Vaccine routes', () => {
     });
 
     it("returns 404 when registering for another user's baby", async () => {
-      const ownerCookie = await registerAndLogin('adhoc-owner@example.com');
-      const intruderCookie = await registerAndLogin('adhoc-intruder@example.com');
-      const babyId = await createBaby(ownerCookie, '2024-01-01');
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('adhoc-owner@example.com');
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin('adhoc-intruder@example.com');
+      const babyId = await createBaby(ownerCookie, ownerCsrfToken, '2024-01-01');
 
       const response = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/vaccines/adhoc`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
         payload: { source: 'CUSTOM', customName: 'Vacina extra', applicationDate: '2024-06-01' },
       });
 
@@ -316,26 +340,26 @@ describe('Vaccine routes', () => {
 
   describe('GET /babies/:babyId/vaccines/adhoc', () => {
     it('lists registered campaign/custom records, newest application first', async () => {
-      const cookie = await registerAndLogin('parent-adhoc-list@example.com');
-      const babyId = await createBaby(cookie, '2024-01-01');
+      const { cookie, csrfToken } = await registerAndLogin('parent-adhoc-list@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
 
       await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/vaccines/adhoc`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { source: 'CUSTOM', customName: 'Vacina antiga', applicationDate: '2024-01-10' },
       });
       await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/vaccines/adhoc`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
         payload: { source: 'CAMPAIGN', customName: 'Vacina recente', applicationDate: '2024-06-01' },
       });
 
       const response = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}/vaccines/adhoc`,
-        headers: { cookie },
+        headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
       expect(response.statusCode).toBe(200);
@@ -347,14 +371,103 @@ describe('Vaccine routes', () => {
     });
 
     it("prevents a user from reading another user's adhoc records", async () => {
-      const ownerCookie = await registerAndLogin('adhoc-list-owner@example.com');
-      const intruderCookie = await registerAndLogin('adhoc-list-intruder@example.com');
-      const babyId = await createBaby(ownerCookie, '2024-01-01');
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('adhoc-list-owner@example.com');
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin('adhoc-list-intruder@example.com');
+      const babyId = await createBaby(ownerCookie, ownerCsrfToken, '2024-01-01');
 
       const response = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}/vaccines/adhoc`,
-        headers: { cookie: intruderCookie },
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe('DELETE /babies/:babyId/vaccines/adhoc/:recordId', () => {
+    it('deletes a campaign/custom vaccine record', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-adhoc-delete@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { source: 'CUSTOM', customName: 'Vacina errada', applicationDate: '2024-06-01' },
+      });
+      const recordId = createResponse.json().id;
+
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/vaccines/adhoc/${recordId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(deleteResponse.statusCode).toBe(204);
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(listResponse.json()).toEqual([]);
+    });
+
+    it('returns 404 when deleting a record that belongs to another user', async () => {
+      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('adhoc-delete-owner@example.com');
+      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin(
+        'adhoc-delete-intruder@example.com',
+      );
+      const babyId = await createBaby(ownerCookie, ownerCsrfToken, '2024-01-01');
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie: ownerCookie, 'x-csrf-token': ownerCsrfToken },
+        payload: { source: 'CUSTOM', customName: 'Vacina extra', applicationDate: '2024-06-01' },
+      });
+      const recordId = createResponse.json().id;
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/vaccines/adhoc/${recordId}`,
+        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('returns 404 for a record that does not exist', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-adhoc-delete-missing@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/vaccines/adhoc/00000000-0000-0000-0000-000000000000`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('returns 404 when attempting to delete a CATALOG-sourced record via the adhoc endpoint', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-adhoc-delete-catalog@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+      const vaccine = await prisma.vaccine.findFirstOrThrow({ where: { recommendedAgeInMonths: 0 } });
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/babies/${babyId}/vaccines/${vaccine.id}/apply`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { applicationDate: '2024-01-05' },
+      });
+      const catalogRecord = await prisma.babyVaccineRecord.findFirstOrThrow({ where: { babyId, vaccineId: vaccine.id } });
+      const recordId = catalogRecord.id;
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/vaccines/adhoc/${recordId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
       expect(response.statusCode).toBe(404);
@@ -369,5 +482,6 @@ describe('Vaccine routes', () => {
     expect(openApiDocument.paths['/babies/{babyId}/vaccines/{vaccineId}/apply'].patch.tags).toContain('Vaccines');
     expect(openApiDocument.paths['/babies/{babyId}/vaccines/adhoc'].get.tags).toContain('Vaccines');
     expect(openApiDocument.paths['/babies/{babyId}/vaccines/adhoc'].post.tags).toContain('Vaccines');
+    expect(openApiDocument.paths['/babies/{babyId}/vaccines/adhoc/{recordId}'].delete.tags).toContain('Vaccines');
   });
 });

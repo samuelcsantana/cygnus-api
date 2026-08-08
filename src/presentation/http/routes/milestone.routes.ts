@@ -1,15 +1,18 @@
 import type { App } from '../../../infrastructure/http/build-app';
 import { Milestone } from '../../../domain/milestone/milestone';
+import { z } from 'zod';
 import { CreateMilestoneUseCase } from '../../../application/milestone/create-milestone.use-case';
 import { ListBabyMilestonesUseCase } from '../../../application/milestone/list-baby-milestones.use-case';
 import { GetMilestoneByIdUseCase } from '../../../application/milestone/get-milestone-by-id.use-case';
 import { UpdateMilestoneUseCase } from '../../../application/milestone/update-milestone.use-case';
+import { DeleteMilestoneUseCase } from '../../../application/milestone/delete-milestone.use-case';
 import { MilestoneNotFoundError } from '../../../application/milestone/errors/milestone-not-found.error';
 import { BabyNotFoundError } from '../../../application/baby/errors/baby-not-found.error';
 import { DomainError } from '../../../shared/errors/domain-error';
 import { PrismaBabyRepository } from '../../../infrastructure/database/repositories/prisma-baby.repository';
 import { PrismaMilestoneRepository } from '../../../infrastructure/database/repositories/prisma-milestone.repository';
 import { prisma } from '../../../infrastructure/database/prisma-client';
+import { auditLogger } from '../../../infrastructure/audit/audit-logger.instance';
 import { authenticate } from '../plugins/authenticate';
 import { authErrorResponseSchema } from '../schemas/auth.schema';
 import {
@@ -45,6 +48,7 @@ export async function milestoneRoutes(app: App) {
   const listBabyMilestonesUseCase = new ListBabyMilestonesUseCase(babyRepository, milestoneRepository);
   const getMilestoneByIdUseCase = new GetMilestoneByIdUseCase(babyRepository, milestoneRepository);
   const updateMilestoneUseCase = new UpdateMilestoneUseCase(babyRepository, milestoneRepository);
+  const deleteMilestoneUseCase = new DeleteMilestoneUseCase(babyRepository, milestoneRepository);
 
   app.route({
     method: 'POST',
@@ -76,6 +80,14 @@ export async function milestoneRoutes(app: App) {
           achievedAt: toBirthDate(request.body.achievedAt),
           category: request.body.category,
           photoUrl: request.body.photoUrl,
+        });
+
+        auditLogger.log({
+          userId: request.userId,
+          action: 'milestone.create',
+          resourceType: 'Milestone',
+          resourceId: milestone.id,
+          babyId: milestone.babyId,
         });
 
         return reply.status(201).send(toResponse(milestone));
@@ -190,6 +202,14 @@ export async function milestoneRoutes(app: App) {
           photoUrl: request.body.photoUrl,
         });
 
+        auditLogger.log({
+          userId: request.userId,
+          action: 'milestone.update',
+          resourceType: 'Milestone',
+          resourceId: milestone.id,
+          babyId: milestone.babyId,
+        });
+
         return reply.status(200).send(toResponse(milestone));
       } catch (error) {
         if (error instanceof BabyNotFoundError || error instanceof MilestoneNotFoundError) {
@@ -198,6 +218,48 @@ export async function milestoneRoutes(app: App) {
 
         if (error instanceof DomainError) {
           return reply.status(400).send({ status: 'error', message: error.message });
+        }
+
+        throw error;
+      }
+    },
+  });
+
+  app.route({
+    method: 'DELETE',
+    url: '/babies/:babyId/milestones/:milestoneId',
+    preHandler: authenticate,
+    schema: {
+      tags: ['Milestones'],
+      summary: 'Delete a milestone',
+      params: milestoneIdParamsSchema,
+      response: {
+        204: z.null().describe('Milestone deleted successfully'),
+        401: authErrorResponseSchema,
+        404: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        await deleteMilestoneUseCase.execute({
+          babyId: request.params.babyId,
+          milestoneId: request.params.milestoneId,
+          requestingUserId: request.userId,
+        });
+
+        auditLogger.log({
+          userId: request.userId,
+          action: 'milestone.delete',
+          resourceType: 'Milestone',
+          resourceId: request.params.milestoneId,
+          babyId: request.params.babyId,
+        });
+
+        return reply.status(204).send(null);
+      } catch (error) {
+        if (error instanceof BabyNotFoundError || error instanceof MilestoneNotFoundError) {
+          return reply.status(404).send({ status: 'error', message: error.message });
         }
 
         throw error;
