@@ -1,4 +1,43 @@
 import { z } from 'zod';
+import { babyResponseSchema } from './baby.schema';
+import { appointmentListResponseSchema } from './appointment.schema';
+import { milestoneListResponseSchema } from './milestone.schema';
+
+const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format');
+
+const exportedVaccineRecordSchema = z.object({
+  id: z.string().uuid(),
+  vaccineId: z.string().uuid().nullable(),
+  source: z.enum(['CATALOG', 'CAMPAIGN', 'CUSTOM']),
+  customName: z.string().nullable(),
+  customDose: z.string().nullable(),
+  status: z.literal('APPLIED'),
+  applicationDate: dateOnlySchema.nullable(),
+  notes: z.string().nullable(),
+  batchNumber: z.string().nullable(),
+  location: z.string().nullable(),
+  professional: z.string().nullable(),
+  photoUrl: z.string().nullable(),
+});
+
+export const exportUserDataResponseSchema = z
+  .object({
+    user: z.object({
+      id: z.string().uuid(),
+      email: z.string().email(),
+      name: z.string(),
+      createdAt: z.string().datetime(),
+    }),
+    babies: z.array(
+      z.object({
+        profile: babyResponseSchema,
+        vaccineRecords: z.array(exportedVaccineRecordSchema),
+        appointments: appointmentListResponseSchema,
+        milestones: milestoneListResponseSchema,
+      }),
+    ),
+  })
+  .describe("The authenticated user's full data set (LGPD data portability export)");
 
 export const updateProfileBodySchema = z
   .object({
