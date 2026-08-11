@@ -17,6 +17,10 @@ const envSchema = z.object({
   // image is also used to run this API locally over plain HTTP, where NODE_ENV stays 'production'
   // (matching the real deployment build) but the browser would silently drop a Secure cookie.
   SECURE_COOKIES: z.enum(['true', 'false']).optional(),
+  // Optional so local dev/CI/test environments without a Resend account still pass env validation
+  // — EmailService no-ops (logs a warning) instead of throwing when these are unset.
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM_EMAIL: z.string().optional(),
 });
 
 function loadEnv() {
