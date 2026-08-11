@@ -38,8 +38,23 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
     return row ? toDomain(row) : null;
   }
 
-  async findAllByBabyId(babyId: string): Promise<Appointment[]> {
-    const rows = await this.prisma.appointment.findMany({ where: { babyId }, orderBy: { scheduledAt: 'asc' } });
+  async findAllByBabyId(babyId: string, search?: string): Promise<Appointment[]> {
+    const rows = await this.prisma.appointment.findMany({
+      where: {
+        babyId,
+        ...(search
+          ? {
+              OR: [
+                { doctorName: { contains: search, mode: 'insensitive' } },
+                { specialty: { contains: search, mode: 'insensitive' } },
+                { location: { contains: search, mode: 'insensitive' } },
+                { reason: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { scheduledAt: 'asc' },
+    });
     return rows.map(toDomain);
   }
 

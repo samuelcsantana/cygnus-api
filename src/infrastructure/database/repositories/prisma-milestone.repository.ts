@@ -34,8 +34,21 @@ export class PrismaMilestoneRepository implements MilestoneRepository {
     return row ? toDomain(row) : null;
   }
 
-  async findAllByBabyId(babyId: string): Promise<Milestone[]> {
-    const rows = await this.prisma.milestone.findMany({ where: { babyId }, orderBy: { achievedAt: 'asc' } });
+  async findAllByBabyId(babyId: string, search?: string): Promise<Milestone[]> {
+    const rows = await this.prisma.milestone.findMany({
+      where: {
+        babyId,
+        ...(search
+          ? {
+              OR: [
+                { title: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { achievedAt: 'asc' },
+    });
     return rows.map(toDomain);
   }
 

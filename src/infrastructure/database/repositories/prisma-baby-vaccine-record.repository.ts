@@ -44,8 +44,13 @@ export class PrismaBabyVaccineRecordRepository implements BabyVaccineRecordRepos
     return record ? toDomain(record) : null;
   }
 
-  async findAllByBabyId(babyId: string): Promise<BabyVaccineRecord[]> {
-    const records = await this.prisma.babyVaccineRecord.findMany({ where: { babyId } });
+  async findAllByBabyId(babyId: string, search?: string): Promise<BabyVaccineRecord[]> {
+    const records = await this.prisma.babyVaccineRecord.findMany({
+      where: {
+        babyId,
+        ...(search ? { customName: { contains: search, mode: 'insensitive' } } : {}),
+      },
+    });
     return records.map(toDomain);
   }
 
