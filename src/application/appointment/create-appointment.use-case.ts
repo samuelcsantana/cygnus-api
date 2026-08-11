@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { BabyRepository } from '../baby/baby-repository';
-import { BabyNotFoundError } from '../baby/errors/baby-not-found.error';
+import { BabyGuardianRepository } from '../baby/baby-guardian-repository';
+import { ensureBabyAccess } from '../baby/ensure-baby-access';
 import { Appointment } from '../../domain/appointment/appointment';
 import { AppointmentRepository } from './appointment-repository';
 
@@ -18,15 +19,12 @@ export interface CreateAppointmentInput {
 export class CreateAppointmentUseCase {
   constructor(
     private readonly babyRepository: BabyRepository,
+    private readonly babyGuardianRepository: BabyGuardianRepository,
     private readonly appointmentRepository: AppointmentRepository,
   ) {}
 
   async execute(input: CreateAppointmentInput): Promise<Appointment> {
-    const baby = await this.babyRepository.findById(input.babyId);
-
-    if (!baby || baby.userId !== input.requestingUserId) {
-      throw new BabyNotFoundError();
-    }
+    await ensureBabyAccess(this.babyRepository, this.babyGuardianRepository, input.babyId, input.requestingUserId);
 
     const appointment = Appointment.schedule({
       id: randomUUID(),

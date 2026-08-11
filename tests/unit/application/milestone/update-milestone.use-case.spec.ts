@@ -3,14 +3,14 @@ import { UpdateMilestoneUseCase } from '../../../../src/application/milestone/up
 import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
 import { MilestoneNotFoundError } from '../../../../src/application/milestone/errors/milestone-not-found.error';
 import { FutureMilestoneDateError } from '../../../../src/domain/milestone/errors/future-milestone-date.error';
-import { buildBabyRepository, buildMilestone, buildMilestoneRepository } from './milestone-test-helpers';
+import { buildBabyRepository, buildMilestone, buildMilestoneRepository, buildBabyGuardianRepository } from './milestone-test-helpers';
 
 describe('UpdateMilestoneUseCase', () => {
   it('updates only the provided fields', async () => {
     const milestone = buildMilestone();
     const babyRepository = buildBabyRepository();
     const milestoneRepository = buildMilestoneRepository({ findById: vi.fn().mockResolvedValue(milestone) });
-    const useCase = new UpdateMilestoneUseCase(babyRepository, milestoneRepository);
+    const useCase = new UpdateMilestoneUseCase(babyRepository, buildBabyGuardianRepository(), milestoneRepository);
 
     const updated = await useCase.execute({
       babyId: 'baby-1',
@@ -33,7 +33,7 @@ describe('UpdateMilestoneUseCase', () => {
     });
     const babyRepository = buildBabyRepository();
     const milestoneRepository = buildMilestoneRepository({ findById: vi.fn().mockResolvedValue(oldMilestone) });
-    const useCase = new UpdateMilestoneUseCase(babyRepository, milestoneRepository);
+    const useCase = new UpdateMilestoneUseCase(babyRepository, buildBabyGuardianRepository(), milestoneRepository);
 
     const updated = await useCase.execute({
       babyId: 'baby-1',
@@ -50,7 +50,7 @@ describe('UpdateMilestoneUseCase', () => {
     const milestone = buildMilestone();
     const babyRepository = buildBabyRepository();
     const milestoneRepository = buildMilestoneRepository({ findById: vi.fn().mockResolvedValue(milestone) });
-    const useCase = new UpdateMilestoneUseCase(babyRepository, milestoneRepository);
+    const useCase = new UpdateMilestoneUseCase(babyRepository, buildBabyGuardianRepository(), milestoneRepository);
 
     await expect(
       useCase.execute({
@@ -69,7 +69,7 @@ describe('UpdateMilestoneUseCase', () => {
     const milestone = buildMilestone();
     const babyRepository = buildBabyRepository();
     const milestoneRepository = buildMilestoneRepository({ findById: vi.fn().mockResolvedValue(milestone) });
-    const useCase = new UpdateMilestoneUseCase(babyRepository, milestoneRepository);
+    const useCase = new UpdateMilestoneUseCase(babyRepository, buildBabyGuardianRepository(), milestoneRepository);
 
     await expect(
       useCase.execute({
@@ -84,7 +84,7 @@ describe('UpdateMilestoneUseCase', () => {
   it('rejects updating a milestone that does not exist', async () => {
     const babyRepository = buildBabyRepository();
     const milestoneRepository = buildMilestoneRepository({ findById: vi.fn().mockResolvedValue(null) });
-    const useCase = new UpdateMilestoneUseCase(babyRepository, milestoneRepository);
+    const useCase = new UpdateMilestoneUseCase(babyRepository, buildBabyGuardianRepository(), milestoneRepository);
 
     await expect(
       useCase.execute({

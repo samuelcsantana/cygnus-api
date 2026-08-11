@@ -1,6 +1,7 @@
 import { Baby } from '../../domain/baby/baby';
 import { BabyRepository } from './baby-repository';
-import { BabyNotFoundError } from './errors/baby-not-found.error';
+import { BabyGuardianRepository } from './baby-guardian-repository';
+import { ensureBabyAccess } from './ensure-baby-access';
 
 export interface GetBabyByIdInput {
   babyId: string;
@@ -8,15 +9,12 @@ export interface GetBabyByIdInput {
 }
 
 export class GetBabyByIdUseCase {
-  constructor(private readonly babyRepository: BabyRepository) {}
+  constructor(
+    private readonly babyRepository: BabyRepository,
+    private readonly babyGuardianRepository: BabyGuardianRepository,
+  ) {}
 
   async execute(input: GetBabyByIdInput): Promise<Baby> {
-    const baby = await this.babyRepository.findById(input.babyId);
-
-    if (!baby || baby.userId !== input.requestingUserId) {
-      throw new BabyNotFoundError();
-    }
-
-    return baby;
+    return ensureBabyAccess(this.babyRepository, this.babyGuardianRepository, input.babyId, input.requestingUserId);
   }
 }

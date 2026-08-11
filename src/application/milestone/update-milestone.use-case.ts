@@ -1,5 +1,6 @@
 import { BabyRepository } from '../baby/baby-repository';
-import { BabyNotFoundError } from '../baby/errors/baby-not-found.error';
+import { BabyGuardianRepository } from '../baby/baby-guardian-repository';
+import { ensureBabyAccess } from '../baby/ensure-baby-access';
 import { Milestone, MilestoneCategory } from '../../domain/milestone/milestone';
 import { InvalidMilestoneTitleError } from '../../domain/milestone/errors/invalid-milestone-title.error';
 import { MilestoneRepository } from './milestone-repository';
@@ -30,15 +31,17 @@ function normalizeTitle(title: string): string {
 export class UpdateMilestoneUseCase {
   constructor(
     private readonly babyRepository: BabyRepository,
+    private readonly babyGuardianRepository: BabyGuardianRepository,
     private readonly milestoneRepository: MilestoneRepository,
   ) {}
 
   async execute(input: UpdateMilestoneInput): Promise<Milestone> {
-    const baby = await this.babyRepository.findById(input.babyId);
-
-    if (!baby || baby.userId !== input.requestingUserId) {
-      throw new BabyNotFoundError();
-    }
+    const baby = await ensureBabyAccess(
+      this.babyRepository,
+      this.babyGuardianRepository,
+      input.babyId,
+      input.requestingUserId,
+    );
 
     const existingMilestone = await this.milestoneRepository.findById(input.milestoneId);
 

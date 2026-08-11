@@ -152,6 +152,77 @@ describe('Appointment routes', () => {
       expect(appointments[0].doctorName).toBe('Dr. First Visit');
       expect(appointments[1].doctorName).toBe('Dr. Second Visit');
     });
+
+    it('filters by search across doctorName, specialty, location and reason, case-insensitively', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-search-appointments@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { scheduledAt: futureIsoString(7), doctorName: 'Dr. Ana Souza', specialty: 'Pediatria' },
+      });
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { scheduledAt: futureIsoString(14), doctorName: 'Dr. Carlos Lima', location: 'Clínica Vida' },
+      });
+
+      const byDoctorName = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/appointments?search=ana souza`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(byDoctorName.statusCode).toBe(200);
+      expect(byDoctorName.json()).toHaveLength(1);
+      expect(byDoctorName.json()[0].doctorName).toBe('Dr. Ana Souza');
+
+      const byLocation = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/appointments?search=vida`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(byLocation.statusCode).toBe(200);
+      expect(byLocation.json()).toHaveLength(1);
+      expect(byLocation.json()[0].doctorName).toBe('Dr. Carlos Lima');
+
+      const noMatch = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/appointments?search=nonexistent`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(noMatch.statusCode).toBe(200);
+      expect(noMatch.json()).toHaveLength(0);
+    });
+
+    it('returns every appointment when search is omitted', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-no-search-appointments@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { scheduledAt: futureIsoString(7), doctorName: 'Dr. Ana Souza' },
+      });
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { scheduledAt: futureIsoString(14), doctorName: 'Dr. Carlos Lima' },
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toHaveLength(2);
+    });
   });
 
   describe('PATCH /babies/:babyId/appointments/:appointmentId', () => {

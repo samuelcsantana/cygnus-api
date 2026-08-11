@@ -7,6 +7,10 @@ export const vaccineScheduleParamsSchema = z.object({
   babyId: z.string().uuid(),
 });
 
+export const adhocVaccineListQuerystringSchema = z.object({
+  search: z.string().trim().min(1).optional().describe('Case-insensitive filter on the campaign/custom vaccine name'),
+});
+
 export const markVaccineAppliedParamsSchema = z.object({
   babyId: z.string().uuid(),
   vaccineId: z.string().uuid(),

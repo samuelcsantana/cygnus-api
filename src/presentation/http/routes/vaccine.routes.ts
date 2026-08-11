@@ -12,6 +12,7 @@ import { VaccineRecordNotFoundError } from '../../../application/vaccine/errors/
 import { DomainError } from '../../../shared/errors/domain-error';
 import { BabyVaccineRecord } from '../../../domain/vaccine/baby-vaccine-record';
 import { PrismaBabyRepository } from '../../../infrastructure/database/repositories/prisma-baby.repository';
+import { PrismaBabyGuardianRepository } from '../../../infrastructure/database/repositories/prisma-baby-guardian.repository';
 import { PrismaVaccineRepository } from '../../../infrastructure/database/repositories/prisma-vaccine.repository';
 import { CachedVaccineRepository } from '../../../infrastructure/database/repositories/cached-vaccine.repository';
 import { PrismaBabyVaccineRecordRepository } from '../../../infrastructure/database/repositories/prisma-baby-vaccine-record.repository';
@@ -21,6 +22,7 @@ import { auditLogger } from '../../../infrastructure/audit/audit-logger.instance
 import { authenticate } from '../plugins/authenticate';
 import { authErrorResponseSchema } from '../schemas/auth.schema';
 import {
+  adhocVaccineListQuerystringSchema,
   adhocVaccineListResponseSchema,
   adhocVaccineRecordParamsSchema,
   adhocVaccineRecordResponseSchema,
@@ -75,22 +77,34 @@ function toScheduleResponse(schedule: AgeGroupSchedule[]) {
 
 export async function vaccineRoutes(app: App) {
   const babyRepository = new PrismaBabyRepository(prisma);
+  const babyGuardianRepository = new PrismaBabyGuardianRepository(prisma);
   const vaccineRepository = new CachedVaccineRepository(new PrismaVaccineRepository(prisma), redis);
   const babyVaccineRecordRepository = new PrismaBabyVaccineRecordRepository(prisma);
   const getBabyVaccineScheduleUseCase = new GetBabyVaccineScheduleUseCase(
     babyRepository,
+    babyGuardianRepository,
     vaccineRepository,
     babyVaccineRecordRepository,
   );
   const markVaccineAsAppliedUseCase = new MarkVaccineAsAppliedUseCase(
     babyRepository,
+    babyGuardianRepository,
     vaccineRepository,
     babyVaccineRecordRepository,
   );
-  const registerAdhocVaccineUseCase = new RegisterAdhocVaccineUseCase(babyRepository, babyVaccineRecordRepository);
-  const listAdhocVaccineRecordsUseCase = new ListAdhocVaccineRecordsUseCase(babyRepository, babyVaccineRecordRepository);
+  const registerAdhocVaccineUseCase = new RegisterAdhocVaccineUseCase(
+    babyRepository,
+    babyGuardianRepository,
+    babyVaccineRecordRepository,
+  );
+  const listAdhocVaccineRecordsUseCase = new ListAdhocVaccineRecordsUseCase(
+    babyRepository,
+    babyGuardianRepository,
+    babyVaccineRecordRepository,
+  );
   const deleteAdhocVaccineRecordUseCase = new DeleteAdhocVaccineRecordUseCase(
     babyRepository,
+    babyGuardianRepository,
     babyVaccineRecordRepository,
   );
 
@@ -206,8 +220,10 @@ export async function vaccineRoutes(app: App) {
       summary: "List a baby's campaign/custom vaccine records",
       description:
         'Returns vaccines logged by hand (a vaccination campaign or a fully custom entry) rather than applied ' +
-        'from the catalog schedule, newest application first.',
+        'from the catalog schedule, newest application first. Optionally filtered by `search`, matched ' +
+        'case-insensitively against the campaign/custom vaccine name.',
       params: vaccineScheduleParamsSchema,
+      querystring: adhocVaccineListQuerystringSchema,
       response: {
         200: adhocVaccineListResponseSchema,
         401: authErrorResponseSchema,
@@ -220,6 +236,7 @@ export async function vaccineRoutes(app: App) {
         const records = await listAdhocVaccineRecordsUseCase.execute({
           babyId: request.params.babyId,
           requestingUserId: request.userId,
+          search: request.query.search,
         });
 
         return reply.status(200).send(records.map(toAdhocResponse));

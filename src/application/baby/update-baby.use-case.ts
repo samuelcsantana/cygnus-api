@@ -1,6 +1,7 @@
 import { Baby, BabyGender } from '../../domain/baby/baby';
 import { BabyRepository } from './baby-repository';
-import { BabyNotFoundError } from './errors/baby-not-found.error';
+import { BabyGuardianRepository } from './baby-guardian-repository';
+import { ensureBabyAccess } from './ensure-baby-access';
 
 export interface UpdateBabyInput {
   babyId: string;
@@ -15,14 +16,18 @@ export interface UpdateBabyInput {
 }
 
 export class UpdateBabyUseCase {
-  constructor(private readonly babyRepository: BabyRepository) {}
+  constructor(
+    private readonly babyRepository: BabyRepository,
+    private readonly babyGuardianRepository: BabyGuardianRepository,
+  ) {}
 
   async execute(input: UpdateBabyInput): Promise<Baby> {
-    const existingBaby = await this.babyRepository.findById(input.babyId);
-
-    if (!existingBaby || existingBaby.userId !== input.requestingUserId) {
-      throw new BabyNotFoundError();
-    }
+    const existingBaby = await ensureBabyAccess(
+      this.babyRepository,
+      this.babyGuardianRepository,
+      input.babyId,
+      input.requestingUserId,
+    );
 
     const updatedBaby = Baby.create({
       id: existingBaby.id,

@@ -10,6 +10,7 @@ import { MilestoneNotFoundError } from '../../../application/milestone/errors/mi
 import { BabyNotFoundError } from '../../../application/baby/errors/baby-not-found.error';
 import { DomainError } from '../../../shared/errors/domain-error';
 import { PrismaBabyRepository } from '../../../infrastructure/database/repositories/prisma-baby.repository';
+import { PrismaBabyGuardianRepository } from '../../../infrastructure/database/repositories/prisma-baby-guardian.repository';
 import { PrismaMilestoneRepository } from '../../../infrastructure/database/repositories/prisma-milestone.repository';
 import { prisma } from '../../../infrastructure/database/prisma-client';
 import { auditLogger } from '../../../infrastructure/audit/audit-logger.instance';
@@ -18,6 +19,7 @@ import { authErrorResponseSchema } from '../schemas/auth.schema';
 import {
   createMilestoneBodySchema,
   milestoneIdParamsSchema,
+  milestoneListQuerystringSchema,
   milestoneListResponseSchema,
   milestoneParamsSchema,
   milestoneResponseSchema,
@@ -43,12 +45,13 @@ function toResponse(milestone: Milestone) {
 
 export async function milestoneRoutes(app: App) {
   const babyRepository = new PrismaBabyRepository(prisma);
+  const babyGuardianRepository = new PrismaBabyGuardianRepository(prisma);
   const milestoneRepository = new PrismaMilestoneRepository(prisma);
-  const createMilestoneUseCase = new CreateMilestoneUseCase(babyRepository, milestoneRepository);
-  const listBabyMilestonesUseCase = new ListBabyMilestonesUseCase(babyRepository, milestoneRepository);
-  const getMilestoneByIdUseCase = new GetMilestoneByIdUseCase(babyRepository, milestoneRepository);
-  const updateMilestoneUseCase = new UpdateMilestoneUseCase(babyRepository, milestoneRepository);
-  const deleteMilestoneUseCase = new DeleteMilestoneUseCase(babyRepository, milestoneRepository);
+  const createMilestoneUseCase = new CreateMilestoneUseCase(babyRepository, babyGuardianRepository, milestoneRepository);
+  const listBabyMilestonesUseCase = new ListBabyMilestonesUseCase(babyRepository, babyGuardianRepository, milestoneRepository);
+  const getMilestoneByIdUseCase = new GetMilestoneByIdUseCase(babyRepository, babyGuardianRepository, milestoneRepository);
+  const updateMilestoneUseCase = new UpdateMilestoneUseCase(babyRepository, babyGuardianRepository, milestoneRepository);
+  const deleteMilestoneUseCase = new DeleteMilestoneUseCase(babyRepository, babyGuardianRepository, milestoneRepository);
 
   app.route({
     method: 'POST',
@@ -112,7 +115,9 @@ export async function milestoneRoutes(app: App) {
     schema: {
       tags: ['Milestones'],
       summary: "List a baby's developmental milestones",
+      description: 'Optionally filtered by `search`, matched case-insensitively against title or description.',
       params: milestoneParamsSchema,
+      querystring: milestoneListQuerystringSchema,
       response: {
         200: milestoneListResponseSchema,
         401: authErrorResponseSchema,
@@ -125,6 +130,7 @@ export async function milestoneRoutes(app: App) {
         const milestones = await listBabyMilestonesUseCase.execute({
           babyId: request.params.babyId,
           requestingUserId: request.userId,
+          search: request.query.search,
         });
 
         return reply.status(200).send(milestones.map(toResponse));

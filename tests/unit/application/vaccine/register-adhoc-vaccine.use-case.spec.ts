@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { RegisterAdhocVaccineUseCase } from '../../../../src/application/vaccine/register-adhoc-vaccine.use-case';
 import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
 import { InvalidCustomVaccineNameError } from '../../../../src/domain/vaccine/errors/invalid-custom-vaccine-name.error';
-import { buildBaby, buildBabyRepository, buildBabyVaccineRecordRepository } from './vaccine-test-helpers';
+import { buildBaby, buildBabyRepository, buildBabyVaccineRecordRepository, buildBabyGuardianRepository } from './vaccine-test-helpers';
 
 describe('RegisterAdhocVaccineUseCase', () => {
   it('creates a CAMPAIGN record already applied, without touching the catalog', async () => {
@@ -10,7 +10,7 @@ describe('RegisterAdhocVaccineUseCase', () => {
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
     const babyVaccineRecordRepository = buildBabyVaccineRecordRepository();
 
-    const useCase = new RegisterAdhocVaccineUseCase(babyRepository, babyVaccineRecordRepository);
+    const useCase = new RegisterAdhocVaccineUseCase(babyRepository, buildBabyGuardianRepository(), babyVaccineRecordRepository);
 
     const record = await useCase.execute({
       babyId: baby.id,
@@ -31,7 +31,7 @@ describe('RegisterAdhocVaccineUseCase', () => {
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
     const babyVaccineRecordRepository = buildBabyVaccineRecordRepository();
 
-    const useCase = new RegisterAdhocVaccineUseCase(babyRepository, babyVaccineRecordRepository);
+    const useCase = new RegisterAdhocVaccineUseCase(babyRepository, buildBabyGuardianRepository(), babyVaccineRecordRepository);
 
     const record = await useCase.execute({
       babyId: baby.id,
@@ -52,7 +52,7 @@ describe('RegisterAdhocVaccineUseCase', () => {
     const baby = buildBaby({ userId: 'owner-id' });
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
     const babyVaccineRecordRepository = buildBabyVaccineRecordRepository();
-    const useCase = new RegisterAdhocVaccineUseCase(babyRepository, babyVaccineRecordRepository);
+    const useCase = new RegisterAdhocVaccineUseCase(babyRepository, buildBabyGuardianRepository(), babyVaccineRecordRepository);
 
     await expect(
       useCase.execute({
@@ -70,7 +70,7 @@ describe('RegisterAdhocVaccineUseCase', () => {
     const baby = buildBaby({ userId: 'owner-id' });
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
     const babyVaccineRecordRepository = buildBabyVaccineRecordRepository();
-    const useCase = new RegisterAdhocVaccineUseCase(babyRepository, babyVaccineRecordRepository);
+    const useCase = new RegisterAdhocVaccineUseCase(babyRepository, buildBabyGuardianRepository(), babyVaccineRecordRepository);
 
     await expect(
       useCase.execute({

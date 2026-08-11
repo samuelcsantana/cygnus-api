@@ -1,5 +1,6 @@
 import { BabyRepository } from '../baby/baby-repository';
-import { BabyNotFoundError } from '../baby/errors/baby-not-found.error';
+import { BabyGuardianRepository } from '../baby/baby-guardian-repository';
+import { ensureBabyAccess } from '../baby/ensure-baby-access';
 import { Appointment } from '../../domain/appointment/appointment';
 import { AppointmentRepository } from './appointment-repository';
 import { AppointmentNotFoundError } from './errors/appointment-not-found.error';
@@ -13,15 +14,12 @@ export interface GetAppointmentByIdInput {
 export class GetAppointmentByIdUseCase {
   constructor(
     private readonly babyRepository: BabyRepository,
+    private readonly babyGuardianRepository: BabyGuardianRepository,
     private readonly appointmentRepository: AppointmentRepository,
   ) {}
 
   async execute(input: GetAppointmentByIdInput): Promise<Appointment> {
-    const baby = await this.babyRepository.findById(input.babyId);
-
-    if (!baby || baby.userId !== input.requestingUserId) {
-      throw new BabyNotFoundError();
-    }
+    await ensureBabyAccess(this.babyRepository, this.babyGuardianRepository, input.babyId, input.requestingUserId);
 
     const appointment = await this.appointmentRepository.findById(input.appointmentId);
 

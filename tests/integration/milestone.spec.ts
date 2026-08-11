@@ -161,6 +161,82 @@ describe('Milestone routes', () => {
       expect(milestones[0].title).toBe('Primeiro marco');
       expect(milestones[1].title).toBe('Segundo marco');
     });
+
+    it('filters by search across title and description, case-insensitively', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-search-milestones@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/milestones`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { title: 'Primeiro sorriso', achievedAt: '2024-03-01', category: 'SOCIAL' },
+      });
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/milestones`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: {
+          title: 'Primeiros passos',
+          achievedAt: '2024-08-01',
+          category: 'MOTOR',
+          description: 'Andou sozinho pela sala',
+        },
+      });
+
+      const byTitle = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/milestones?search=SORRISO`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(byTitle.statusCode).toBe(200);
+      expect(byTitle.json()).toHaveLength(1);
+      expect(byTitle.json()[0].title).toBe('Primeiro sorriso');
+
+      const byDescription = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/milestones?search=sozinho`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(byDescription.statusCode).toBe(200);
+      expect(byDescription.json()).toHaveLength(1);
+      expect(byDescription.json()[0].title).toBe('Primeiros passos');
+
+      const noMatch = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/milestones?search=nonexistent`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(noMatch.statusCode).toBe(200);
+      expect(noMatch.json()).toHaveLength(0);
+    });
+
+    it('returns every milestone when search is omitted', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-no-search-milestones@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/milestones`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { title: 'Primeiro sorriso', achievedAt: '2024-03-01', category: 'SOCIAL' },
+      });
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/milestones`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { title: 'Primeiros passos', achievedAt: '2024-08-01', category: 'MOTOR' },
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/milestones`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toHaveLength(2);
+    });
   });
 
   describe('PATCH /babies/:babyId/milestones/:milestoneId', () => {

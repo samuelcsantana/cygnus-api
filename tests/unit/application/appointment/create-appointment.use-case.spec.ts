@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { CreateAppointmentUseCase } from '../../../../src/application/appointment/create-appointment.use-case';
 import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
 import { PastAppointmentDateError } from '../../../../src/domain/appointment/errors/past-appointment-date.error';
-import { buildAppointmentRepository, buildBabyRepository } from './appointment-test-helpers';
+import { buildAppointmentRepository, buildBabyRepository, buildBabyGuardianRepository } from './appointment-test-helpers';
 
 describe('CreateAppointmentUseCase', () => {
   it('schedules a new appointment for the owning user', async () => {
     const babyRepository = buildBabyRepository();
     const appointmentRepository = buildAppointmentRepository();
-    const useCase = new CreateAppointmentUseCase(babyRepository, appointmentRepository);
+    const useCase = new CreateAppointmentUseCase(babyRepository, buildBabyGuardianRepository(), appointmentRepository);
 
     const appointment = await useCase.execute({
       babyId: 'baby-1',
@@ -25,7 +25,7 @@ describe('CreateAppointmentUseCase', () => {
   it("rejects scheduling for another user's baby", async () => {
     const babyRepository = buildBabyRepository();
     const appointmentRepository = buildAppointmentRepository();
-    const useCase = new CreateAppointmentUseCase(babyRepository, appointmentRepository);
+    const useCase = new CreateAppointmentUseCase(babyRepository, buildBabyGuardianRepository(), appointmentRepository);
 
     await expect(
       useCase.execute({
@@ -41,7 +41,7 @@ describe('CreateAppointmentUseCase', () => {
   it('rejects scheduling an appointment in the past', async () => {
     const babyRepository = buildBabyRepository();
     const appointmentRepository = buildAppointmentRepository();
-    const useCase = new CreateAppointmentUseCase(babyRepository, appointmentRepository);
+    const useCase = new CreateAppointmentUseCase(babyRepository, buildBabyGuardianRepository(), appointmentRepository);
 
     await expect(
       useCase.execute({

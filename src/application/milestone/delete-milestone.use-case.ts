@@ -1,5 +1,6 @@
 import { BabyRepository } from '../baby/baby-repository';
-import { BabyNotFoundError } from '../baby/errors/baby-not-found.error';
+import { BabyGuardianRepository } from '../baby/baby-guardian-repository';
+import { ensureBabyAccess } from '../baby/ensure-baby-access';
 import { MilestoneRepository } from './milestone-repository';
 import { MilestoneNotFoundError } from './errors/milestone-not-found.error';
 
@@ -12,15 +13,12 @@ export interface DeleteMilestoneInput {
 export class DeleteMilestoneUseCase {
   constructor(
     private readonly babyRepository: BabyRepository,
+    private readonly babyGuardianRepository: BabyGuardianRepository,
     private readonly milestoneRepository: MilestoneRepository,
   ) {}
 
   async execute(input: DeleteMilestoneInput): Promise<void> {
-    const baby = await this.babyRepository.findById(input.babyId);
-
-    if (!baby || baby.userId !== input.requestingUserId) {
-      throw new BabyNotFoundError();
-    }
+    await ensureBabyAccess(this.babyRepository, this.babyGuardianRepository, input.babyId, input.requestingUserId);
 
     const existingMilestone = await this.milestoneRepository.findById(input.milestoneId);
 

@@ -6,6 +6,15 @@ export const appointmentParamsSchema = z.object({
   babyId: z.string().uuid(),
 });
 
+export const appointmentListQuerystringSchema = z.object({
+  search: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe('Case-insensitive filter matching doctorName, specialty, location or reason'),
+});
+
 export const appointmentIdParamsSchema = z.object({
   babyId: z.string().uuid(),
   appointmentId: z.string().uuid(),

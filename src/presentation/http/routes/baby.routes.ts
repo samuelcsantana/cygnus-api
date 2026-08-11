@@ -7,8 +7,10 @@ import { GetBabyByIdUseCase } from '../../../application/baby/get-baby-by-id.use
 import { UpdateBabyUseCase } from '../../../application/baby/update-baby.use-case';
 import { DeleteBabyUseCase } from '../../../application/baby/delete-baby.use-case';
 import { BabyNotFoundError } from '../../../application/baby/errors/baby-not-found.error';
+import { GuardianForbiddenError } from '../../../application/baby/errors/guardian-forbidden.error';
 import { DomainError } from '../../../shared/errors/domain-error';
 import { PrismaBabyRepository } from '../../../infrastructure/database/repositories/prisma-baby.repository';
+import { PrismaBabyGuardianRepository } from '../../../infrastructure/database/repositories/prisma-baby-guardian.repository';
 import { prisma } from '../../../infrastructure/database/prisma-client';
 import { authenticate } from '../plugins/authenticate';
 import { authErrorResponseSchema } from '../schemas/auth.schema';
@@ -41,11 +43,12 @@ function toResponse(baby: Baby) {
 
 export async function babyRoutes(app: App) {
   const babyRepository = new PrismaBabyRepository(prisma);
-  const createBabyUseCase = new CreateBabyUseCase(babyRepository);
-  const listUserBabiesUseCase = new ListUserBabiesUseCase(babyRepository);
-  const getBabyByIdUseCase = new GetBabyByIdUseCase(babyRepository);
-  const updateBabyUseCase = new UpdateBabyUseCase(babyRepository);
-  const deleteBabyUseCase = new DeleteBabyUseCase(babyRepository);
+  const babyGuardianRepository = new PrismaBabyGuardianRepository(prisma);
+  const createBabyUseCase = new CreateBabyUseCase(babyRepository, babyGuardianRepository);
+  const listUserBabiesUseCase = new ListUserBabiesUseCase(babyRepository, babyGuardianRepository);
+  const getBabyByIdUseCase = new GetBabyByIdUseCase(babyRepository, babyGuardianRepository);
+  const updateBabyUseCase = new UpdateBabyUseCase(babyRepository, babyGuardianRepository);
+  const deleteBabyUseCase = new DeleteBabyUseCase(babyRepository, babyGuardianRepository);
 
   app.route({
     method: 'POST',
@@ -193,12 +196,13 @@ export async function babyRoutes(app: App) {
       tags: ['Babies'],
       summary: 'Delete a baby profile',
       description:
-        'Deletes a baby profile owned by the authenticated user, cascading to its vaccine records, ' +
-        'appointments, milestones and notifications.',
+        'Deletes a baby profile, cascading to its vaccine records, appointments, milestones and ' +
+        'notifications. Only the OWNER guardian can delete the profile — other guardians get 403.',
       params: babyParamsSchema,
       response: {
         204: z.null().describe('Baby profile deleted successfully'),
         401: authErrorResponseSchema,
+        403: authErrorResponseSchema,
         404: authErrorResponseSchema,
         500: authErrorResponseSchema,
       },
@@ -214,6 +218,10 @@ export async function babyRoutes(app: App) {
       } catch (error) {
         if (error instanceof BabyNotFoundError) {
           return reply.status(404).send({ status: 'error', message: error.message });
+        }
+
+        if (error instanceof GuardianForbiddenError) {
+          return reply.status(403).send({ status: 'error', message: error.message });
         }
 
         throw error;

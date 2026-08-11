@@ -8,6 +8,7 @@ import { AppointmentNotFoundError } from '../../../application/appointment/error
 import { BabyNotFoundError } from '../../../application/baby/errors/baby-not-found.error';
 import { DomainError } from '../../../shared/errors/domain-error';
 import { PrismaBabyRepository } from '../../../infrastructure/database/repositories/prisma-baby.repository';
+import { PrismaBabyGuardianRepository } from '../../../infrastructure/database/repositories/prisma-baby-guardian.repository';
 import { PrismaAppointmentRepository } from '../../../infrastructure/database/repositories/prisma-appointment.repository';
 import { prisma } from '../../../infrastructure/database/prisma-client';
 import { auditLogger } from '../../../infrastructure/audit/audit-logger.instance';
@@ -15,6 +16,7 @@ import { authenticate } from '../plugins/authenticate';
 import { authErrorResponseSchema } from '../schemas/auth.schema';
 import {
   appointmentIdParamsSchema,
+  appointmentListQuerystringSchema,
   appointmentListResponseSchema,
   appointmentParamsSchema,
   appointmentResponseSchema,
@@ -39,11 +41,28 @@ function toResponse(appointment: Appointment) {
 
 export async function appointmentRoutes(app: App) {
   const babyRepository = new PrismaBabyRepository(prisma);
+  const babyGuardianRepository = new PrismaBabyGuardianRepository(prisma);
   const appointmentRepository = new PrismaAppointmentRepository(prisma);
-  const createAppointmentUseCase = new CreateAppointmentUseCase(babyRepository, appointmentRepository);
-  const listBabyAppointmentsUseCase = new ListBabyAppointmentsUseCase(babyRepository, appointmentRepository);
-  const getAppointmentByIdUseCase = new GetAppointmentByIdUseCase(babyRepository, appointmentRepository);
-  const updateAppointmentUseCase = new UpdateAppointmentUseCase(babyRepository, appointmentRepository);
+  const createAppointmentUseCase = new CreateAppointmentUseCase(
+    babyRepository,
+    babyGuardianRepository,
+    appointmentRepository,
+  );
+  const listBabyAppointmentsUseCase = new ListBabyAppointmentsUseCase(
+    babyRepository,
+    babyGuardianRepository,
+    appointmentRepository,
+  );
+  const getAppointmentByIdUseCase = new GetAppointmentByIdUseCase(
+    babyRepository,
+    babyGuardianRepository,
+    appointmentRepository,
+  );
+  const updateAppointmentUseCase = new UpdateAppointmentUseCase(
+    babyRepository,
+    babyGuardianRepository,
+    appointmentRepository,
+  );
 
   app.route({
     method: 'POST',
@@ -105,7 +124,11 @@ export async function appointmentRoutes(app: App) {
     schema: {
       tags: ['Appointments'],
       summary: "List a baby's appointments",
+      description:
+        'Optionally filtered by `search`, matched case-insensitively against doctorName, specialty, location ' +
+        'or reason.',
       params: appointmentParamsSchema,
+      querystring: appointmentListQuerystringSchema,
       response: {
         200: appointmentListResponseSchema,
         401: authErrorResponseSchema,
@@ -118,6 +141,7 @@ export async function appointmentRoutes(app: App) {
         const appointments = await listBabyAppointmentsUseCase.execute({
           babyId: request.params.babyId,
           requestingUserId: request.userId,
+          search: request.query.search,
         });
 
         return reply.status(200).send(appointments.map(toResponse));

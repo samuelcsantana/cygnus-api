@@ -5,6 +5,7 @@ import { VaccineNotFoundError } from '../../../../src/application/vaccine/errors
 import { BabyVaccineRecord } from '../../../../src/domain/vaccine/baby-vaccine-record';
 import {
   buildBaby,
+  buildBabyGuardianRepository,
   buildBabyRepository,
   buildBabyVaccineRecordRepository,
   buildVaccine,
@@ -19,7 +20,7 @@ describe('MarkVaccineAsAppliedUseCase', () => {
     const vaccineRepository = buildVaccineRepository({ findById: vi.fn().mockResolvedValue(vaccine) });
     const babyVaccineRecordRepository = buildBabyVaccineRecordRepository();
 
-    const useCase = new MarkVaccineAsAppliedUseCase(babyRepository, vaccineRepository, babyVaccineRecordRepository);
+    const useCase = new MarkVaccineAsAppliedUseCase(babyRepository, buildBabyGuardianRepository(), vaccineRepository, babyVaccineRecordRepository);
 
     const record = await useCase.execute({
       babyId: baby.id,
@@ -49,7 +50,7 @@ describe('MarkVaccineAsAppliedUseCase', () => {
       findByBabyAndVaccine: vi.fn().mockResolvedValue(existingRecord),
     });
 
-    const useCase = new MarkVaccineAsAppliedUseCase(babyRepository, vaccineRepository, babyVaccineRecordRepository);
+    const useCase = new MarkVaccineAsAppliedUseCase(babyRepository, buildBabyGuardianRepository(), vaccineRepository, babyVaccineRecordRepository);
 
     const record = await useCase.execute({
       babyId: baby.id,
@@ -68,7 +69,7 @@ describe('MarkVaccineAsAppliedUseCase', () => {
     const vaccineRepository = buildVaccineRepository({ findById: vi.fn().mockResolvedValue(vaccine) });
     const babyVaccineRecordRepository = buildBabyVaccineRecordRepository();
 
-    const useCase = new MarkVaccineAsAppliedUseCase(babyRepository, vaccineRepository, babyVaccineRecordRepository);
+    const useCase = new MarkVaccineAsAppliedUseCase(babyRepository, buildBabyGuardianRepository(), vaccineRepository, babyVaccineRecordRepository);
 
     const record = await useCase.execute({
       babyId: baby.id,
@@ -92,6 +93,7 @@ describe('MarkVaccineAsAppliedUseCase', () => {
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
     const useCase = new MarkVaccineAsAppliedUseCase(
       babyRepository,
+      buildBabyGuardianRepository(),
       buildVaccineRepository(),
       buildBabyVaccineRecordRepository(),
     );
@@ -107,6 +109,7 @@ describe('MarkVaccineAsAppliedUseCase', () => {
     const vaccineRepository = buildVaccineRepository({ findById: vi.fn().mockResolvedValue(null) });
     const useCase = new MarkVaccineAsAppliedUseCase(
       babyRepository,
+      buildBabyGuardianRepository(),
       vaccineRepository,
       buildBabyVaccineRecordRepository(),
     );

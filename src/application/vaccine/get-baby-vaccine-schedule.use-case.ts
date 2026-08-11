@@ -1,5 +1,6 @@
 import { BabyRepository } from '../baby/baby-repository';
-import { BabyNotFoundError } from '../baby/errors/baby-not-found.error';
+import { BabyGuardianRepository } from '../baby/baby-guardian-repository';
+import { ensureBabyAccess } from '../baby/ensure-baby-access';
 import { BabyVaccineRecord, VaccineRecordStatus } from '../../domain/vaccine/baby-vaccine-record';
 import { addMonthsClamped } from '../../shared/utils/date';
 import { BabyVaccineRecordRepository } from './baby-vaccine-record-repository';
@@ -34,16 +35,18 @@ export interface GetBabyVaccineScheduleInput {
 export class GetBabyVaccineScheduleUseCase {
   constructor(
     private readonly babyRepository: BabyRepository,
+    private readonly babyGuardianRepository: BabyGuardianRepository,
     private readonly vaccineRepository: VaccineRepository,
     private readonly babyVaccineRecordRepository: BabyVaccineRecordRepository,
   ) {}
 
   async execute(input: GetBabyVaccineScheduleInput): Promise<AgeGroupSchedule[]> {
-    const baby = await this.babyRepository.findById(input.babyId);
-
-    if (!baby || baby.userId !== input.requestingUserId) {
-      throw new BabyNotFoundError();
-    }
+    const baby = await ensureBabyAccess(
+      this.babyRepository,
+      this.babyGuardianRepository,
+      input.babyId,
+      input.requestingUserId,
+    );
 
     const [vaccines, appliedRecords] = await Promise.all([
       this.vaccineRepository.findAll(),

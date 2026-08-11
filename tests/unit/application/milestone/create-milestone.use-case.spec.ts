@@ -3,13 +3,13 @@ import { CreateMilestoneUseCase } from '../../../../src/application/milestone/cr
 import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
 import { FutureMilestoneDateError } from '../../../../src/domain/milestone/errors/future-milestone-date.error';
 import { MilestoneBeforeBirthError } from '../../../../src/domain/milestone/errors/milestone-before-birth.error';
-import { babyBirthDate, buildBabyRepository, buildMilestoneRepository } from './milestone-test-helpers';
+import { babyBirthDate, buildBabyRepository, buildMilestoneRepository, buildBabyGuardianRepository } from './milestone-test-helpers';
 
 describe('CreateMilestoneUseCase', () => {
   it('records a new milestone for the owning user', async () => {
     const babyRepository = buildBabyRepository();
     const milestoneRepository = buildMilestoneRepository();
-    const useCase = new CreateMilestoneUseCase(babyRepository, milestoneRepository);
+    const useCase = new CreateMilestoneUseCase(babyRepository, buildBabyGuardianRepository(), milestoneRepository);
 
     const milestone = await useCase.execute({
       babyId: 'baby-1',
@@ -26,7 +26,7 @@ describe('CreateMilestoneUseCase', () => {
 
   it("rejects recording for another user's baby", async () => {
     const babyRepository = buildBabyRepository();
-    const useCase = new CreateMilestoneUseCase(babyRepository, buildMilestoneRepository());
+    const useCase = new CreateMilestoneUseCase(babyRepository, buildBabyGuardianRepository(), buildMilestoneRepository());
 
     await expect(
       useCase.execute({
@@ -43,7 +43,7 @@ describe('CreateMilestoneUseCase', () => {
   it('rejects a future achievedAt', async () => {
     const babyRepository = buildBabyRepository();
     const milestoneRepository = buildMilestoneRepository();
-    const useCase = new CreateMilestoneUseCase(babyRepository, milestoneRepository);
+    const useCase = new CreateMilestoneUseCase(babyRepository, buildBabyGuardianRepository(), milestoneRepository);
 
     await expect(
       useCase.execute({
@@ -62,7 +62,7 @@ describe('CreateMilestoneUseCase', () => {
   it("rejects an achievedAt before the baby's birth date", async () => {
     const babyRepository = buildBabyRepository();
     const milestoneRepository = buildMilestoneRepository();
-    const useCase = new CreateMilestoneUseCase(babyRepository, milestoneRepository);
+    const useCase = new CreateMilestoneUseCase(babyRepository, buildBabyGuardianRepository(), milestoneRepository);
 
     await expect(
       useCase.execute({

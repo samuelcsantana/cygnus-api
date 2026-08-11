@@ -3,7 +3,7 @@ import { DeleteAdhocVaccineRecordUseCase } from '../../../../src/application/vac
 import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
 import { VaccineRecordNotFoundError } from '../../../../src/application/vaccine/errors/vaccine-record-not-found.error';
 import { BabyVaccineRecord } from '../../../../src/domain/vaccine/baby-vaccine-record';
-import { buildBaby, buildBabyRepository, buildBabyVaccineRecordRepository } from './vaccine-test-helpers';
+import { buildBaby, buildBabyRepository, buildBabyVaccineRecordRepository, buildBabyGuardianRepository } from './vaccine-test-helpers';
 
 function buildAdhocRecord(overrides: Partial<Parameters<typeof BabyVaccineRecord.registerAdhoc>[0]> = {}) {
   return BabyVaccineRecord.registerAdhoc({
@@ -35,7 +35,7 @@ describe('DeleteAdhocVaccineRecordUseCase', () => {
       findById: vi.fn().mockResolvedValue(record),
       delete: deleteFn,
     });
-    const useCase = new DeleteAdhocVaccineRecordUseCase(babyRepository, babyVaccineRecordRepository);
+    const useCase = new DeleteAdhocVaccineRecordUseCase(babyRepository, buildBabyGuardianRepository(), babyVaccineRecordRepository);
 
     await useCase.execute({ babyId: baby.id, recordId: record.id, requestingUserId: 'owner-id' });
 
@@ -51,7 +51,7 @@ describe('DeleteAdhocVaccineRecordUseCase', () => {
       findById: vi.fn().mockResolvedValue(record),
       delete: deleteFn,
     });
-    const useCase = new DeleteAdhocVaccineRecordUseCase(babyRepository, babyVaccineRecordRepository);
+    const useCase = new DeleteAdhocVaccineRecordUseCase(babyRepository, buildBabyGuardianRepository(), babyVaccineRecordRepository);
 
     await expect(
       useCase.execute({ babyId: baby.id, recordId: record.id, requestingUserId: 'intruder-id' }),
@@ -67,7 +67,7 @@ describe('DeleteAdhocVaccineRecordUseCase', () => {
       findById: vi.fn().mockResolvedValue(null),
       delete: deleteFn,
     });
-    const useCase = new DeleteAdhocVaccineRecordUseCase(babyRepository, babyVaccineRecordRepository);
+    const useCase = new DeleteAdhocVaccineRecordUseCase(babyRepository, buildBabyGuardianRepository(), babyVaccineRecordRepository);
 
     await expect(
       useCase.execute({ babyId: baby.id, recordId: 'missing-id', requestingUserId: 'owner-id' }),
@@ -84,7 +84,7 @@ describe('DeleteAdhocVaccineRecordUseCase', () => {
       findById: vi.fn().mockResolvedValue(record),
       delete: deleteFn,
     });
-    const useCase = new DeleteAdhocVaccineRecordUseCase(babyRepository, babyVaccineRecordRepository);
+    const useCase = new DeleteAdhocVaccineRecordUseCase(babyRepository, buildBabyGuardianRepository(), babyVaccineRecordRepository);
 
     await expect(
       useCase.execute({ babyId: baby.id, recordId: record.id, requestingUserId: 'owner-id' }),

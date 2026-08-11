@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ListAdhocVaccineRecordsUseCase } from '../../../../src/application/vaccine/list-adhoc-vaccine-records.use-case';
 import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
 import { BabyVaccineRecord } from '../../../../src/domain/vaccine/baby-vaccine-record';
-import { buildBaby, buildBabyRepository, buildBabyVaccineRecordRepository } from './vaccine-test-helpers';
+import { buildBaby, buildBabyRepository, buildBabyVaccineRecordRepository, buildBabyGuardianRepository } from './vaccine-test-helpers';
 
 describe('ListAdhocVaccineRecordsUseCase', () => {
   it('filters out CATALOG records and sorts by applicationDate descending', async () => {
@@ -33,7 +33,7 @@ describe('ListAdhocVaccineRecordsUseCase', () => {
       findAllByBabyId: vi.fn().mockResolvedValue([catalogRecord, olderCampaign, newerCustom]),
     });
 
-    const useCase = new ListAdhocVaccineRecordsUseCase(babyRepository, babyVaccineRecordRepository);
+    const useCase = new ListAdhocVaccineRecordsUseCase(babyRepository, buildBabyGuardianRepository(), babyVaccineRecordRepository);
     const records = await useCase.execute({ babyId: baby.id, requestingUserId: 'owner-id' });
 
     expect(records.map((r) => r.id)).toEqual(['custom-1', 'campaign-1']);
@@ -42,10 +42,23 @@ describe('ListAdhocVaccineRecordsUseCase', () => {
   it("rejects listing another user's baby records", async () => {
     const baby = buildBaby({ userId: 'owner-id' });
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
-    const useCase = new ListAdhocVaccineRecordsUseCase(babyRepository, buildBabyVaccineRecordRepository());
+    const useCase = new ListAdhocVaccineRecordsUseCase(babyRepository, buildBabyGuardianRepository(), buildBabyVaccineRecordRepository());
 
     await expect(useCase.execute({ babyId: baby.id, requestingUserId: 'intruder-id' })).rejects.toThrow(
       BabyNotFoundError,
     );
+  });
+
+  it('forwards the search term to the repository', async () => {
+    const baby = buildBaby({ userId: 'owner-id' });
+    const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
+    const babyVaccineRecordRepository = buildBabyVaccineRecordRepository({
+      findAllByBabyId: vi.fn().mockResolvedValue([]),
+    });
+    const useCase = new ListAdhocVaccineRecordsUseCase(babyRepository, buildBabyGuardianRepository(), babyVaccineRecordRepository);
+
+    await useCase.execute({ babyId: baby.id, requestingUserId: 'owner-id', search: 'Influenza' });
+
+    expect(babyVaccineRecordRepository.findAllByBabyId).toHaveBeenCalledWith(baby.id, 'Influenza');
   });
 });

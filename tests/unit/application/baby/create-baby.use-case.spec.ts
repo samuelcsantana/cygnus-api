@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { CreateBabyUseCase } from '../../../../src/application/baby/create-baby.use-case';
 import { FutureBirthDateError } from '../../../../src/domain/baby/errors/future-birth-date.error';
-import { buildBabyRepository } from './baby-test-helpers';
+import { buildBabyGuardianRepository, buildBabyRepository } from './baby-test-helpers';
 
 describe('CreateBabyUseCase', () => {
   it('creates and persists a baby for the given user', async () => {
     const babyRepository = buildBabyRepository();
-    const useCase = new CreateBabyUseCase(babyRepository);
+    const babyGuardianRepository = buildBabyGuardianRepository();
+    const useCase = new CreateBabyUseCase(babyRepository, babyGuardianRepository);
 
     const baby = await useCase.execute({
       userId: 'owner-id',
@@ -17,11 +18,13 @@ describe('CreateBabyUseCase', () => {
 
     expect(baby.userId).toBe('owner-id');
     expect(babyRepository.save).toHaveBeenCalledWith(baby);
+    expect(babyGuardianRepository.create).toHaveBeenCalledWith(baby.id, 'owner-id', 'OWNER');
   });
 
   it('rejects a birth date in the future', async () => {
     const babyRepository = buildBabyRepository();
-    const useCase = new CreateBabyUseCase(babyRepository);
+    const babyGuardianRepository = buildBabyGuardianRepository();
+    const useCase = new CreateBabyUseCase(babyRepository, babyGuardianRepository);
 
     const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
 

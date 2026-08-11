@@ -3,7 +3,7 @@ import { UpdateAppointmentUseCase } from '../../../../src/application/appointmen
 import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
 import { AppointmentNotFoundError } from '../../../../src/application/appointment/errors/appointment-not-found.error';
 import { PastAppointmentDateError } from '../../../../src/domain/appointment/errors/past-appointment-date.error';
-import { buildAppointment, buildAppointmentRepository, buildBabyRepository } from './appointment-test-helpers';
+import { buildAppointment, buildAppointmentRepository, buildBabyRepository, buildBabyGuardianRepository } from './appointment-test-helpers';
 
 describe('UpdateAppointmentUseCase', () => {
   it('marks a past-due appointment as COMPLETED without revalidating its original date', async () => {
@@ -15,7 +15,7 @@ describe('UpdateAppointmentUseCase', () => {
     const appointmentRepository = buildAppointmentRepository({
       findById: vi.fn().mockResolvedValue(pastAppointment),
     });
-    const useCase = new UpdateAppointmentUseCase(babyRepository, appointmentRepository);
+    const useCase = new UpdateAppointmentUseCase(babyRepository, buildBabyGuardianRepository(), appointmentRepository);
 
     const updated = await useCase.execute({
       babyId: 'baby-1',
@@ -35,7 +35,7 @@ describe('UpdateAppointmentUseCase', () => {
     const appointment = buildAppointment();
     const babyRepository = buildBabyRepository();
     const appointmentRepository = buildAppointmentRepository({ findById: vi.fn().mockResolvedValue(appointment) });
-    const useCase = new UpdateAppointmentUseCase(babyRepository, appointmentRepository);
+    const useCase = new UpdateAppointmentUseCase(babyRepository, buildBabyGuardianRepository(), appointmentRepository);
 
     const updated = await useCase.execute({
       babyId: 'baby-1',
@@ -51,7 +51,7 @@ describe('UpdateAppointmentUseCase', () => {
     const appointment = buildAppointment();
     const babyRepository = buildBabyRepository();
     const appointmentRepository = buildAppointmentRepository({ findById: vi.fn().mockResolvedValue(appointment) });
-    const useCase = new UpdateAppointmentUseCase(babyRepository, appointmentRepository);
+    const useCase = new UpdateAppointmentUseCase(babyRepository, buildBabyGuardianRepository(), appointmentRepository);
 
     const updated = await useCase.execute({
       babyId: 'baby-1',
@@ -68,7 +68,7 @@ describe('UpdateAppointmentUseCase', () => {
     const appointment = buildAppointment();
     const babyRepository = buildBabyRepository();
     const appointmentRepository = buildAppointmentRepository({ findById: vi.fn().mockResolvedValue(appointment) });
-    const useCase = new UpdateAppointmentUseCase(babyRepository, appointmentRepository);
+    const useCase = new UpdateAppointmentUseCase(babyRepository, buildBabyGuardianRepository(), appointmentRepository);
 
     await expect(
       useCase.execute({
@@ -87,7 +87,7 @@ describe('UpdateAppointmentUseCase', () => {
     const appointment = buildAppointment();
     const babyRepository = buildBabyRepository();
     const appointmentRepository = buildAppointmentRepository({ findById: vi.fn().mockResolvedValue(appointment) });
-    const useCase = new UpdateAppointmentUseCase(babyRepository, appointmentRepository);
+    const useCase = new UpdateAppointmentUseCase(babyRepository, buildBabyGuardianRepository(), appointmentRepository);
 
     await expect(
       useCase.execute({
@@ -104,7 +104,7 @@ describe('UpdateAppointmentUseCase', () => {
   it('rejects updating an appointment that does not exist', async () => {
     const babyRepository = buildBabyRepository();
     const appointmentRepository = buildAppointmentRepository({ findById: vi.fn().mockResolvedValue(null) });
-    const useCase = new UpdateAppointmentUseCase(babyRepository, appointmentRepository);
+    const useCase = new UpdateAppointmentUseCase(babyRepository, buildBabyGuardianRepository(), appointmentRepository);
 
     await expect(
       useCase.execute({

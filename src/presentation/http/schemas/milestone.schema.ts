@@ -7,6 +7,10 @@ export const milestoneParamsSchema = z.object({
   babyId: z.string().uuid(),
 });
 
+export const milestoneListQuerystringSchema = z.object({
+  search: z.string().trim().min(1).optional().describe('Case-insensitive filter matching title or description'),
+});
+
 export const milestoneIdParamsSchema = z.object({
   babyId: z.string().uuid(),
   milestoneId: z.string().uuid(),

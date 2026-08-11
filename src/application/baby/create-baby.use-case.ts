@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Baby, BabyGender } from '../../domain/baby/baby';
 import { BabyRepository } from './baby-repository';
+import { BabyGuardianRepository } from './baby-guardian-repository';
 
 export interface CreateBabyInput {
   userId: string;
@@ -14,7 +15,10 @@ export interface CreateBabyInput {
 }
 
 export class CreateBabyUseCase {
-  constructor(private readonly babyRepository: BabyRepository) {}
+  constructor(
+    private readonly babyRepository: BabyRepository,
+    private readonly babyGuardianRepository: BabyGuardianRepository,
+  ) {}
 
   async execute(input: CreateBabyInput): Promise<Baby> {
     const baby = Baby.create({
@@ -30,6 +34,10 @@ export class CreateBabyUseCase {
     });
 
     await this.babyRepository.save(baby);
+    // The creator becomes the OWNER guardian — without this row, `ensureBabyAccess` would lock
+    // the creator out of the baby they just made, since access is now guardian-driven, not
+    // `Baby.userId`-driven.
+    await this.babyGuardianRepository.create(baby.id, input.userId, 'OWNER');
 
     return baby;
   }

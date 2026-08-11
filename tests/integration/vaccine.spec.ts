@@ -383,6 +383,68 @@ describe('Vaccine routes', () => {
 
       expect(response.statusCode).toBe(404);
     });
+
+    it('filters by search against the campaign/custom name, case-insensitively', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-adhoc-search@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { source: 'CUSTOM', customName: 'Vacina antiga', applicationDate: '2024-01-10' },
+      });
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { source: 'CAMPAIGN', customName: 'Campanha influenza', applicationDate: '2024-06-01' },
+      });
+
+      const matching = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/vaccines/adhoc?search=INFLUENZA`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(matching.statusCode).toBe(200);
+      expect(matching.json()).toHaveLength(1);
+      expect(matching.json()[0].customName).toBe('Campanha influenza');
+
+      const noMatch = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/vaccines/adhoc?search=nonexistent`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(noMatch.statusCode).toBe(200);
+      expect(noMatch.json()).toHaveLength(0);
+    });
+
+    it('returns every adhoc record when search is omitted', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-adhoc-no-search@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { source: 'CUSTOM', customName: 'Vacina antiga', applicationDate: '2024-01-10' },
+      });
+      await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { source: 'CAMPAIGN', customName: 'Campanha influenza', applicationDate: '2024-06-01' },
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/vaccines/adhoc`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toHaveLength(2);
+    });
   });
 
   describe('DELETE /babies/:babyId/vaccines/adhoc/:recordId', () => {

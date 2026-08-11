@@ -4,6 +4,7 @@ import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-
 import { BabyVaccineRecord } from '../../../../src/domain/vaccine/baby-vaccine-record';
 import {
   buildBaby,
+  buildBabyGuardianRepository,
   buildBabyRepository,
   buildBabyVaccineRecordRepository,
   buildVaccine,
@@ -25,7 +26,7 @@ describe('GetBabyVaccineScheduleUseCase', () => {
     });
     const babyVaccineRecordRepository = buildBabyVaccineRecordRepository();
 
-    const useCase = new GetBabyVaccineScheduleUseCase(babyRepository, vaccineRepository, babyVaccineRecordRepository);
+    const useCase = new GetBabyVaccineScheduleUseCase(babyRepository, buildBabyGuardianRepository(), vaccineRepository, babyVaccineRecordRepository);
 
     const schedule = await useCase.execute({
       babyId: baby.id,
@@ -56,7 +57,7 @@ describe('GetBabyVaccineScheduleUseCase', () => {
       findAllByBabyId: vi.fn().mockResolvedValue([appliedRecord]),
     });
 
-    const useCase = new GetBabyVaccineScheduleUseCase(babyRepository, vaccineRepository, babyVaccineRecordRepository);
+    const useCase = new GetBabyVaccineScheduleUseCase(babyRepository, buildBabyGuardianRepository(), vaccineRepository, babyVaccineRecordRepository);
 
     const schedule = await useCase.execute({
       babyId: baby.id,
@@ -81,7 +82,7 @@ describe('GetBabyVaccineScheduleUseCase', () => {
     });
     const babyVaccineRecordRepository = buildBabyVaccineRecordRepository();
 
-    const useCase = new GetBabyVaccineScheduleUseCase(babyRepository, vaccineRepository, babyVaccineRecordRepository);
+    const useCase = new GetBabyVaccineScheduleUseCase(babyRepository, buildBabyGuardianRepository(), vaccineRepository, babyVaccineRecordRepository);
 
     const schedule = await useCase.execute({ babyId: baby.id, requestingUserId: 'owner-id' });
 
@@ -93,6 +94,7 @@ describe('GetBabyVaccineScheduleUseCase', () => {
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
     const useCase = new GetBabyVaccineScheduleUseCase(
       babyRepository,
+      buildBabyGuardianRepository(),
       buildVaccineRepository(),
       buildBabyVaccineRecordRepository(),
     );
@@ -106,6 +108,7 @@ describe('GetBabyVaccineScheduleUseCase', () => {
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(null) });
     const useCase = new GetBabyVaccineScheduleUseCase(
       babyRepository,
+      buildBabyGuardianRepository(),
       buildVaccineRepository(),
       buildBabyVaccineRecordRepository(),
     );
