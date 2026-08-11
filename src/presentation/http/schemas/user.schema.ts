@@ -26,6 +26,7 @@ export const exportUserDataResponseSchema = z
       id: z.string().uuid(),
       email: z.string().email(),
       name: z.string(),
+      emailNotificationsEnabled: z.boolean(),
       createdAt: z.string().datetime(),
     }),
     babies: z.array(
@@ -49,6 +50,10 @@ export const updateProfileBodySchema = z
       .describe('New plain-text password, at least 8 characters. Requires currentPassword')
       .optional(),
     currentPassword: z.string().min(1).describe('Required whenever email or password change').optional(),
+    emailNotificationsEnabled: z
+      .boolean()
+      .describe('Whether the user wants to receive reminder emails (vaccines, appointments)')
+      .optional(),
   })
   .superRefine((body, ctx) => {
     if (Object.keys(body).length === 0) {

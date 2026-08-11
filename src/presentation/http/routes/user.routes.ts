@@ -67,12 +67,14 @@ export async function userRoutes(app: App) {
           email: request.body.email,
           password: request.body.password,
           currentPassword: request.body.currentPassword,
+          emailNotificationsEnabled: request.body.emailNotificationsEnabled,
         });
 
         return reply.status(200).send({
           id: user.id,
           email: user.email,
           name: user.name,
+          emailNotificationsEnabled: user.emailNotificationsEnabled,
           createdAt: user.createdAt.toISOString(),
         });
       } catch (error) {
@@ -118,6 +120,7 @@ export async function userRoutes(app: App) {
             id: data.user.id,
             email: data.user.email,
             name: data.user.name,
+            emailNotificationsEnabled: data.user.emailNotificationsEnabled,
             createdAt: data.user.createdAt.toISOString(),
           },
           babies: data.babies.map(({ baby, vaccineRecords, appointments, milestones }) => ({

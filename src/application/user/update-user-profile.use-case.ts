@@ -11,6 +11,7 @@ export interface UpdateUserProfileInput {
   email?: string;
   password?: string;
   currentPassword?: string;
+  emailNotificationsEnabled?: boolean;
 }
 
 export class UpdateUserProfileUseCase {
@@ -53,6 +54,7 @@ export class UpdateUserProfileUseCase {
       email: input.email ?? existingUser.email,
       passwordHash,
       name: input.name ?? existingUser.name,
+      emailNotificationsEnabled: input.emailNotificationsEnabled ?? existingUser.emailNotificationsEnabled,
       createdAt: existingUser.createdAt,
     });
 

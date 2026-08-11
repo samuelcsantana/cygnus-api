@@ -6,6 +6,7 @@ export interface UserProps {
   email: string;
   passwordHash: string;
   name: string;
+  emailNotificationsEnabled: boolean;
   createdAt: Date;
 }
 
@@ -14,6 +15,7 @@ export class User {
   readonly email: string;
   readonly passwordHash: string;
   readonly name: string;
+  readonly emailNotificationsEnabled: boolean;
   readonly createdAt: Date;
 
   private constructor(props: UserProps) {
@@ -21,10 +23,18 @@ export class User {
     this.email = props.email;
     this.passwordHash = props.passwordHash;
     this.name = props.name;
+    this.emailNotificationsEnabled = props.emailNotificationsEnabled;
     this.createdAt = props.createdAt;
   }
 
-  static create(props: { id: string; email: string; passwordHash: string; name: string; createdAt?: Date }): User {
+  static create(props: {
+    id: string;
+    email: string;
+    passwordHash: string;
+    name: string;
+    emailNotificationsEnabled?: boolean;
+    createdAt?: Date;
+  }): User {
     const name = props.name.trim();
 
     if (name.length === 0) {
@@ -38,6 +48,7 @@ export class User {
       email,
       passwordHash: props.passwordHash,
       name,
+      emailNotificationsEnabled: props.emailNotificationsEnabled ?? true,
       createdAt: props.createdAt ?? new Date(),
     });
   }

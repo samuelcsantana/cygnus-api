@@ -21,7 +21,7 @@ export interface ExportedBaby {
 }
 
 export interface ExportedUserData {
-  user: { id: string; email: string; name: string; createdAt: Date };
+  user: { id: string; email: string; name: string; emailNotificationsEnabled: boolean; createdAt: Date };
   babies: ExportedBaby[];
 }
 
@@ -60,7 +60,13 @@ export class ExportUserDataUseCase {
     );
 
     return {
-      user: { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        emailNotificationsEnabled: user.emailNotificationsEnabled,
+        createdAt: user.createdAt,
+      },
       babies: exportedBabies,
     };
   }

@@ -2,12 +2,20 @@ import { PrismaClient } from '@prisma/client';
 import { UserRepository } from '../../../application/user/user-repository';
 import { User } from '../../../domain/user/user';
 
-function toDomain(record: { id: string; email: string; passwordHash: string; name: string; createdAt: Date }): User {
+function toDomain(record: {
+  id: string;
+  email: string;
+  passwordHash: string;
+  name: string;
+  emailNotificationsEnabled: boolean;
+  createdAt: Date;
+}): User {
   return User.create({
     id: record.id,
     email: record.email,
     passwordHash: record.passwordHash,
     name: record.name,
+    emailNotificationsEnabled: record.emailNotificationsEnabled,
     createdAt: record.createdAt,
   });
 }
@@ -33,12 +41,14 @@ export class PrismaUserRepository implements UserRepository {
         email: user.email,
         passwordHash: user.passwordHash,
         name: user.name,
+        emailNotificationsEnabled: user.emailNotificationsEnabled,
         createdAt: user.createdAt,
       },
       update: {
         email: user.email,
         passwordHash: user.passwordHash,
         name: user.name,
+        emailNotificationsEnabled: user.emailNotificationsEnabled,
       },
     });
   }

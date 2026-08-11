@@ -8,13 +8,15 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  passwordHash  String         @map("password_hash")
-  name          String
-  createdAt     DateTime       @default(now()) @map("created_at")
-  babies        Baby[]
-  notifications Notification[]
+  id                         String         @id @default(uuid())
+  email                      String         @unique
+  passwordHash               String         @map("password_hash")
+  name                       String
+  emailNotificationsEnabled  Boolean        @default(true) @map("email_notifications_enabled")
+  createdAt                  DateTime       @default(now()) @map("created_at")
+  babies                     Baby[]
+  notifications              Notification[]
+  babyGuardianships          BabyGuardian[]
 
   @@map("users")
 }
@@ -22,6 +24,11 @@ model User {
 enum Gender {
   MALE
   FEMALE
+}
+
+enum GuardianRole {
+  OWNER
+  GUARDIAN
 }
 
 model Baby {
@@ -40,9 +47,45 @@ model Baby {
   appointments   Appointment[]
   milestones     Milestone[]
   notifications  Notification[]
+  guardians      BabyGuardian[]
+  invites        BabyInvite[]
 
   @@index([userId])
   @@map("babies")
+}
+
+// A baby profile can be jointly managed by more than one adult (e.g. both parents). `Baby.userId`
+// stays as the "created by" reference, but access control for reads/writes is decided solely by
+// the presence of a `BabyGuardian` row for (babyId, userId) — see `ensureBabyAccess`.
+model BabyGuardian {
+  id        String       @id @default(uuid())
+  babyId    String       @map("baby_id")
+  baby      Baby         @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  userId    String       @map("user_id")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      GuardianRole @default(GUARDIAN)
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@unique([babyId, userId])
+  @@index([userId])
+  @@map("baby_guardians")
+}
+
+// A shareable code (optionally tied to an invitee email) that grants GUARDIAN access to a baby
+// once redeemed. Single-use and time-limited (see `expiresAt`).
+model BabyInvite {
+  id              String    @id @default(uuid())
+  babyId          String    @map("baby_id")
+  baby            Baby      @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  code            String    @unique
+  createdByUserId String    @map("created_by_user_id")
+  inviteeEmail    String?   @map("invitee_email")
+  expiresAt       DateTime  @map("expires_at")
+  usedAt          DateTime? @map("used_at")
+  usedByUserId    String?   @map("used_by_user_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@map("baby_invites")
 }
 
 model Vaccine {

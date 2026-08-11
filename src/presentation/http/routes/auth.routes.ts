@@ -63,6 +63,7 @@ export async function authRoutes(app: App) {
           id: user.id,
           email: user.email,
           name: user.name,
+          emailNotificationsEnabled: user.emailNotificationsEnabled,
           createdAt: user.createdAt.toISOString(),
         });
       } catch (error) {
@@ -181,6 +182,7 @@ export async function authRoutes(app: App) {
         id: user.id,
         email: user.email,
         name: user.name,
+        emailNotificationsEnabled: user.emailNotificationsEnabled,
         createdAt: user.createdAt.toISOString(),
       });
     },

@@ -11,6 +11,7 @@ export const registerResponseSchema = z
     id: z.string().uuid(),
     email: z.string().email(),
     name: z.string(),
+    emailNotificationsEnabled: z.boolean(),
     createdAt: z.string().datetime(),
   })
   .describe('The newly created user account');
@@ -25,6 +26,9 @@ export const currentUserResponseSchema = z
     id: z.string().uuid(),
     email: z.string().email(),
     name: z.string(),
+    emailNotificationsEnabled: z
+      .boolean()
+      .describe('Whether the user wants to receive reminder emails (vaccines, appointments)'),
     createdAt: z.string().datetime(),
   })
   .describe('The authenticated user account');
