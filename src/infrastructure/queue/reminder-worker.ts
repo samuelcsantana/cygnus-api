@@ -8,6 +8,9 @@ import { PrismaVaccineRepository } from '../database/repositories/prisma-vaccine
 import { PrismaBabyVaccineRecordRepository } from '../database/repositories/prisma-baby-vaccine-record.repository';
 import { PrismaAppointmentRepository } from '../database/repositories/prisma-appointment.repository';
 import { PrismaNotificationRepository } from '../database/repositories/prisma-notification.repository';
+import { PrismaBabyGuardianRepository } from '../database/repositories/prisma-baby-guardian.repository';
+import { PrismaUserRepository } from '../database/repositories/prisma-user.repository';
+import { emailService } from '../email/email-service.instance';
 import { GenerateReminderNotificationsUseCase } from '../../application/notification/generate-reminder-notifications.use-case';
 import { REMINDER_QUEUE_NAME } from './reminder-queue';
 
@@ -22,6 +25,9 @@ export function createReminderWorker(): Worker {
     new PrismaBabyVaccineRecordRepository(prisma),
     new PrismaAppointmentRepository(prisma),
     new PrismaNotificationRepository(prisma),
+    new PrismaBabyGuardianRepository(prisma),
+    new PrismaUserRepository(prisma),
+    emailService,
   );
 
   const worker = new Worker(

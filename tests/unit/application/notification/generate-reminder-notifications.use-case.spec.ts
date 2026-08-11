@@ -5,9 +5,14 @@ import {
   buildAppointment,
   buildAppointmentRepository,
   buildBaby,
+  buildBabyGuardian,
+  buildBabyGuardianRepository,
   buildBabyRepository,
   buildBabyVaccineRecordRepository,
+  buildEmailService,
   buildNotificationRepository,
+  buildReminderUser,
+  buildUserRepository,
   buildVaccine,
   buildVaccineRepository,
 } from './notification-test-helpers';
@@ -20,6 +25,9 @@ function buildUseCase(overrides: {
   babyVaccineRecordRepository?: ReturnType<typeof buildBabyVaccineRecordRepository>;
   appointmentRepository?: ReturnType<typeof buildAppointmentRepository>;
   notificationRepository?: ReturnType<typeof buildNotificationRepository>;
+  babyGuardianRepository?: ReturnType<typeof buildBabyGuardianRepository>;
+  userRepository?: ReturnType<typeof buildUserRepository>;
+  emailService?: ReturnType<typeof buildEmailService>;
 } = {}) {
   return new GenerateReminderNotificationsUseCase(
     overrides.babyRepository ?? buildBabyRepository(),
@@ -27,6 +35,9 @@ function buildUseCase(overrides: {
     overrides.babyVaccineRecordRepository ?? buildBabyVaccineRecordRepository(),
     overrides.appointmentRepository ?? buildAppointmentRepository({ findAllByBabyId: vi.fn().mockResolvedValue([]) }),
     overrides.notificationRepository ?? buildNotificationRepository(),
+    overrides.babyGuardianRepository ?? buildBabyGuardianRepository(),
+    overrides.userRepository ?? buildUserRepository(),
+    overrides.emailService ?? buildEmailService(),
   );
 }
 
@@ -171,5 +182,128 @@ describe('GenerateReminderNotificationsUseCase — appointments', () => {
 
     expect(result.createdCount).toBe(0);
     expect(notificationRepository.save).not.toHaveBeenCalled();
+  });
+});
+
+describe('GenerateReminderNotificationsUseCase — email reminders', () => {
+  it('does not attempt an email when the guardian has emailNotificationsEnabled: false', async () => {
+    const baby = buildBaby({ birthDate: new Date('2024-01-01T00:00:00.000Z') });
+    const vaccine = buildVaccine({ recommendedAgeInMonths: 0 });
+    const optedOutUser = buildReminderUser({ id: 'owner-id', emailNotificationsEnabled: false });
+    const emailService = buildEmailService();
+    const useCase = buildUseCase({
+      babyRepository: buildBabyRepository({ findAll: vi.fn().mockResolvedValue([baby]) }),
+      vaccineRepository: buildVaccineRepository({ findAll: vi.fn().mockResolvedValue([vaccine]) }),
+      babyGuardianRepository: buildBabyGuardianRepository({
+        findAllByBaby: vi.fn().mockResolvedValue([buildBabyGuardian({ userId: 'owner-id' })]),
+      }),
+      userRepository: buildUserRepository({ findById: vi.fn().mockResolvedValue(optedOutUser) }),
+      emailService,
+    });
+
+    const result = await useCase.execute(referenceDate);
+
+    expect(result.createdCount).toBe(1);
+    expect(emailService.sendVaccineOverdueEmail).not.toHaveBeenCalled();
+  });
+
+  it('emails every opted-in guardian of a baby with a delayed vaccine', async () => {
+    const baby = buildBaby({ birthDate: new Date('2024-01-01T00:00:00.000Z') });
+    const vaccine = buildVaccine({ recommendedAgeInMonths: 0 });
+    const owner = buildReminderUser({ id: 'owner-id', email: 'owner@example.com', emailNotificationsEnabled: true });
+    const coParent = buildReminderUser({ id: 'co-parent-id', email: 'co-parent@example.com', emailNotificationsEnabled: true });
+    const optedOut = buildReminderUser({ id: 'opted-out-id', email: 'opted-out@example.com', emailNotificationsEnabled: false });
+    const emailService = buildEmailService();
+    const usersById = new Map([
+      [owner.id, owner],
+      [coParent.id, coParent],
+      [optedOut.id, optedOut],
+    ]);
+    const useCase = buildUseCase({
+      babyRepository: buildBabyRepository({ findAll: vi.fn().mockResolvedValue([baby]) }),
+      vaccineRepository: buildVaccineRepository({ findAll: vi.fn().mockResolvedValue([vaccine]) }),
+      babyGuardianRepository: buildBabyGuardianRepository({
+        findAllByBaby: vi.fn().mockResolvedValue([
+          buildBabyGuardian({ userId: owner.id, role: 'OWNER' }),
+          buildBabyGuardian({ userId: coParent.id, role: 'GUARDIAN' }),
+          buildBabyGuardian({ userId: optedOut.id, role: 'GUARDIAN' }),
+        ]),
+      }),
+      userRepository: buildUserRepository({
+        findById: vi.fn((id: string) => Promise.resolve(usersById.get(id) ?? null)),
+      }),
+      emailService,
+    });
+
+    await useCase.execute(referenceDate);
+
+    expect(emailService.sendVaccineOverdueEmail).toHaveBeenCalledTimes(2);
+    expect(emailService.sendVaccineOverdueEmail).toHaveBeenCalledWith(owner.email, baby.name, vaccine.name);
+    expect(emailService.sendVaccineOverdueEmail).toHaveBeenCalledWith(coParent.email, baby.name, vaccine.name);
+  });
+
+  it('emails every opted-in guardian of a baby with an upcoming appointment', async () => {
+    const baby = buildBaby();
+    const appointment = buildAppointment({
+      scheduledAt: new Date('2024-06-02T00:00:00.000Z'),
+      referenceDate: new Date('2024-05-01T00:00:00.000Z'),
+    });
+    const owner = buildReminderUser({ id: 'owner-id', email: 'owner@example.com', emailNotificationsEnabled: true });
+    const emailService = buildEmailService();
+    const useCase = buildUseCase({
+      babyRepository: buildBabyRepository({ findAll: vi.fn().mockResolvedValue([baby]) }),
+      appointmentRepository: buildAppointmentRepository({ findAllByBabyId: vi.fn().mockResolvedValue([appointment]) }),
+      babyGuardianRepository: buildBabyGuardianRepository({
+        findAllByBaby: vi.fn().mockResolvedValue([buildBabyGuardian({ userId: owner.id })]),
+      }),
+      userRepository: buildUserRepository({ findById: vi.fn().mockResolvedValue(owner) }),
+      emailService,
+    });
+
+    await useCase.execute(referenceDate);
+
+    expect(emailService.sendAppointmentReminderEmail).toHaveBeenCalledTimes(1);
+    expect(emailService.sendAppointmentReminderEmail).toHaveBeenCalledWith(
+      owner.email,
+      baby.name,
+      appointment.doctorName,
+      appointment.scheduledAt,
+    );
+  });
+
+  it('does not let a failed email send stop other guardians or crash the sweep', async () => {
+    const baby = buildBaby({ birthDate: new Date('2024-01-01T00:00:00.000Z') });
+    const vaccine = buildVaccine({ recommendedAgeInMonths: 0 });
+    const owner = buildReminderUser({ id: 'owner-id', email: 'owner@example.com', emailNotificationsEnabled: true });
+    const coParent = buildReminderUser({ id: 'co-parent-id', email: 'co-parent@example.com', emailNotificationsEnabled: true });
+    const usersById = new Map([
+      [owner.id, owner],
+      [coParent.id, coParent],
+    ]);
+    const emailService = buildEmailService({
+      sendVaccineOverdueEmail: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('Resend is down'))
+        .mockResolvedValueOnce(undefined),
+    });
+    const useCase = buildUseCase({
+      babyRepository: buildBabyRepository({ findAll: vi.fn().mockResolvedValue([baby]) }),
+      vaccineRepository: buildVaccineRepository({ findAll: vi.fn().mockResolvedValue([vaccine]) }),
+      babyGuardianRepository: buildBabyGuardianRepository({
+        findAllByBaby: vi.fn().mockResolvedValue([
+          buildBabyGuardian({ userId: owner.id, role: 'OWNER' }),
+          buildBabyGuardian({ userId: coParent.id, role: 'GUARDIAN' }),
+        ]),
+      }),
+      userRepository: buildUserRepository({
+        findById: vi.fn((id: string) => Promise.resolve(usersById.get(id) ?? null)),
+      }),
+      emailService,
+    });
+
+    const result = await useCase.execute(referenceDate);
+
+    expect(result.createdCount).toBe(1);
+    expect(emailService.sendVaccineOverdueEmail).toHaveBeenCalledTimes(2);
   });
 });

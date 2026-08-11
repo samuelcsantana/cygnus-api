@@ -1,12 +1,17 @@
 import { vi } from 'vitest';
 import { BabyRepository } from '../../../../src/application/baby/baby-repository';
+import { BabyGuardianRepository } from '../../../../src/application/baby/baby-guardian-repository';
 import { VaccineRepository } from '../../../../src/application/vaccine/vaccine-repository';
 import { BabyVaccineRecordRepository } from '../../../../src/application/vaccine/baby-vaccine-record-repository';
 import { AppointmentRepository } from '../../../../src/application/appointment/appointment-repository';
+import { UserRepository } from '../../../../src/application/user/user-repository';
 import { NotificationRepository } from '../../../../src/application/notification/notification-repository';
 import { Baby } from '../../../../src/domain/baby/baby';
+import { BabyGuardian } from '../../../../src/domain/baby/baby-guardian';
 import { Vaccine } from '../../../../src/domain/vaccine/vaccine';
 import { Appointment } from '../../../../src/domain/appointment/appointment';
+import { User } from '../../../../src/domain/user/user';
+import { ReminderEmailSender } from '../../../../src/infrastructure/email/email-service';
 
 export function buildBaby(overrides: Partial<Parameters<typeof Baby.create>[0]> = {}): Baby {
   return Baby.create({
@@ -17,6 +22,56 @@ export function buildBaby(overrides: Partial<Parameters<typeof Baby.create>[0]> 
     gender: 'FEMALE',
     ...overrides,
   });
+}
+
+export function buildBabyGuardian(overrides: Partial<Parameters<typeof BabyGuardian.create>[0]> = {}): BabyGuardian {
+  return BabyGuardian.create({
+    id: 'guardian-1',
+    babyId: 'baby-1',
+    userId: 'owner-id',
+    role: 'OWNER',
+    ...overrides,
+  });
+}
+
+export function buildBabyGuardianRepository(overrides: Partial<BabyGuardianRepository> = {}): BabyGuardianRepository {
+  return {
+    findByBabyAndUser: vi.fn().mockResolvedValue(buildBabyGuardian()),
+    findAllByBaby: vi.fn().mockResolvedValue([buildBabyGuardian()]),
+    findAllByUser: vi.fn().mockResolvedValue([]),
+    create: vi.fn().mockResolvedValue(buildBabyGuardian()),
+    delete: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
+export function buildReminderUser(overrides: Partial<Parameters<typeof User.create>[0]> = {}): User {
+  return User.create({
+    id: 'owner-id',
+    email: 'owner@example.com',
+    passwordHash: 'hashed',
+    name: 'Owner Parent',
+    emailNotificationsEnabled: true,
+    ...overrides,
+  });
+}
+
+export function buildUserRepository(overrides: Partial<UserRepository> = {}): UserRepository {
+  return {
+    findById: vi.fn().mockResolvedValue(buildReminderUser()),
+    findByEmail: vi.fn().mockResolvedValue(null),
+    save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
+export function buildEmailService(overrides: Partial<ReminderEmailSender> = {}): ReminderEmailSender {
+  return {
+    sendVaccineOverdueEmail: vi.fn().mockResolvedValue(undefined),
+    sendAppointmentReminderEmail: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
 }
 
 export function buildBabyRepository(overrides: Partial<BabyRepository> = {}): BabyRepository {
