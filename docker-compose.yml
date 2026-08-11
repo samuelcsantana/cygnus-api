@@ -51,6 +51,12 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
     ports:
       - '${PORT}:${PORT}'
+    volumes:
+      # WORKDIR /app in the Dockerfile — matches `UPLOADS_DIR` in
+      # src/shared/config/uploads.ts, which resolves to `/app/uploads` when running the built
+      # `dist/main.js` from that working directory. Persists milestone photos across container
+      # recreations.
+      - cygnus_uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,3 +68,5 @@ volumes:
     name: cygnus_postgres_data
   cygnus_redis_data:
     name: cygnus_redis_data
+  cygnus_uploads_data:
+    name: cygnus_uploads_data

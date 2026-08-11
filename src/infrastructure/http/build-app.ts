@@ -1,8 +1,11 @@
+import fs from 'node:fs';
 import fastify, { FastifyError } from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
+import staticFiles from '@fastify/static';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import {
@@ -13,6 +16,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { env } from '../../shared/config/env';
 import { logger } from '../../shared/logging/logger';
+import { MILESTONE_PHOTOS_DIR, UPLOADS_DIR } from '../../shared/config/uploads';
 import { healthRoutes } from '../../presentation/http/routes/health.routes';
 import { authRoutes } from '../../presentation/http/routes/auth.routes';
 import { userRoutes } from '../../presentation/http/routes/user.routes';
@@ -20,8 +24,10 @@ import { babyRoutes } from '../../presentation/http/routes/baby.routes';
 import { vaccineRoutes } from '../../presentation/http/routes/vaccine.routes';
 import { appointmentRoutes } from '../../presentation/http/routes/appointment.routes';
 import { milestoneRoutes } from '../../presentation/http/routes/milestone.routes';
+import { inviteRoutes } from '../../presentation/http/routes/invite.routes';
 import { notificationRoutes } from '../../presentation/http/routes/notification.routes';
 import { specialtyRoutes } from '../../presentation/http/routes/specialty.routes';
+import { uploadRoutes } from '../../presentation/http/routes/upload.routes';
 
 export async function buildApp() {
   const app = fastify({ loggerInstance: logger }).withTypeProvider<ZodTypeProvider>();
@@ -50,6 +56,17 @@ export async function buildApp() {
   await app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(cookie);
+  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } });
+
+  // Created eagerly (not lazily on first upload) so `@fastify/static` finds the directory at
+  // registration time instead of just logging a "root path must exist" warning on a fresh
+  // checkout/container. The upload route also creates it defensively before every write.
+  fs.mkdirSync(MILESTONE_PHOTOS_DIR, { recursive: true });
+
+  // Publicly served (no auth) — milestone photos are plain public image URLs today with no
+  // access control, same as an externally-hosted `photoUrl` would be, so this isn't a new
+  // exposure. Only uploading (POST /uploads/milestone-photos) requires authentication.
+  await app.register(staticFiles, { root: UPLOADS_DIR, prefix: '/uploads/' });
 
   await app.register(swagger, {
     openapi: {
@@ -66,7 +83,9 @@ export async function buildApp() {
         { name: 'Vaccines', description: 'Vaccination tracking' },
         { name: 'Appointments', description: 'Medical appointment scheduling' },
         { name: 'Milestones', description: 'Developmental milestone tracking' },
+        { name: 'Guardians', description: 'Sharing a baby profile between multiple adults via invite codes' },
         { name: 'Notifications', description: 'In-app alerts for delayed vaccines and upcoming appointments' },
+        { name: 'Uploads', description: 'File uploads (milestone photos)' },
       ],
     },
     transform: jsonSchemaTransform,
@@ -85,8 +104,10 @@ export async function buildApp() {
   await app.register(vaccineRoutes);
   await app.register(appointmentRoutes);
   await app.register(milestoneRoutes);
+  await app.register(inviteRoutes);
   await app.register(notificationRoutes);
   await app.register(specialtyRoutes);
+  await app.register(uploadRoutes);
 
   return app;
 }
