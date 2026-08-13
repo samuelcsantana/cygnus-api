@@ -7,7 +7,7 @@
   "main": "dist/main.js",
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.seed.json",
     "start": "node dist/main.js",
     "test": "dotenv -e .env.test -- vitest run",
     "test:watch": "dotenv -e .env.test -- vitest",

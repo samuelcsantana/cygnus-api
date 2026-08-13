@@ -34,7 +34,7 @@ describe('GetBabyVaccineScheduleUseCase', () => {
       referenceDate: new Date('2024-04-01T00:00:00.000Z'),
     });
 
-    const flatItems = schedule.flatMap((group) => group.items);
+    const flatItems = schedule.groups.flatMap((group) => group.items);
     expect(flatItems.find((item) => item.vaccineId === 'vaccine-birth')?.status).toBe('DELAYED');
     expect(flatItems.find((item) => item.vaccineId === 'vaccine-2m')?.status).toBe('DELAYED');
     expect(flatItems.find((item) => item.vaccineId === 'vaccine-6m')?.status).toBe('PENDING');
@@ -65,7 +65,7 @@ describe('GetBabyVaccineScheduleUseCase', () => {
       referenceDate: new Date('2024-06-01T00:00:00.000Z'),
     });
 
-    const item = schedule.flatMap((group) => group.items)[0];
+    const item = schedule.groups.flatMap((group) => group.items)[0];
     expect(item.status).toBe('APPLIED');
     expect(item.applicationDate).toEqual(new Date('2024-01-02T00:00:00.000Z'));
     expect(item.notes).toBe('Applied at the maternity ward');
@@ -86,7 +86,79 @@ describe('GetBabyVaccineScheduleUseCase', () => {
 
     const schedule = await useCase.execute({ babyId: baby.id, requestingUserId: 'owner-id' });
 
-    expect(schedule.map((group) => group.ageInMonths)).toEqual([0, 6]);
+    expect(schedule.groups.map((group) => group.ageInMonths)).toEqual([0, 6]);
+  });
+
+  it('returns source metadata for the active official catalog', async () => {
+    const useCase = new GetBabyVaccineScheduleUseCase(
+      buildBabyRepository(),
+      buildBabyGuardianRepository(),
+      buildVaccineRepository(),
+      buildBabyVaccineRecordRepository(),
+    );
+
+    const schedule = await useCase.execute({ babyId: 'baby-1', requestingUserId: 'owner-id' });
+
+    expect(schedule.metadata).toMatchObject({
+      version: 'PNI-2026-CHILD-2026-07-29',
+      sourceOrganization: 'Ministério da Saúde do Brasil',
+      sourceUpdatedAt: '2026-07-29',
+      minimumAgeInMonths: 0,
+      maximumAgeInMonths: 119,
+    });
+  });
+
+  it('marks conditional and recurring recommendations as GUIDANCE instead of DELAYED', async () => {
+    const baby = buildBaby({ birthDate });
+    const conditional = buildVaccine({
+      id: 'conditional-vaccine',
+      recommendationKind: 'CONDITIONAL',
+      recommendedAgeInMonths: 0,
+    });
+    const recurring = buildVaccine({
+      id: 'recurring-vaccine',
+      recommendationKind: 'RECURRING',
+      recommendedAgeInMonths: 0,
+    });
+    const useCase = new GetBabyVaccineScheduleUseCase(
+      buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) }),
+      buildBabyGuardianRepository(),
+      buildVaccineRepository({ findAll: vi.fn().mockResolvedValue([conditional, recurring]) }),
+      buildBabyVaccineRecordRepository(),
+    );
+
+    const schedule = await useCase.execute({
+      babyId: baby.id,
+      requestingUserId: 'owner-id',
+      referenceDate: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    expect(schedule.groups.flatMap((group) => group.items).map((item) => item.status)).toEqual([
+      'GUIDANCE',
+      'GUIDANCE',
+    ]);
+  });
+
+  it('does not retroactively mark doses due before the active catalog version as delayed', async () => {
+    const baby = buildBaby({ birthDate: new Date('2024-01-01T00:00:00.000Z') });
+    const currentVersionVaccine = buildVaccine({
+      effectiveFrom: new Date('2026-07-29T00:00:00.000Z'),
+      recommendedAgeInMonths: 0,
+    });
+    const useCase = new GetBabyVaccineScheduleUseCase(
+      buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) }),
+      buildBabyGuardianRepository(),
+      buildVaccineRepository({ findAll: vi.fn().mockResolvedValue([currentVersionVaccine]) }),
+      buildBabyVaccineRecordRepository(),
+    );
+
+    const schedule = await useCase.execute({
+      babyId: baby.id,
+      requestingUserId: 'owner-id',
+      referenceDate: new Date('2026-08-13T00:00:00.000Z'),
+    });
+
+    expect(schedule.groups[0]?.items[0]?.status).toBe('GUIDANCE');
   });
 
   it("rejects with BabyNotFoundError when the baby belongs to another user", async () => {

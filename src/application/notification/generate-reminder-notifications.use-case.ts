@@ -55,11 +55,19 @@ export class GenerateReminderNotificationsUseCase {
     let created = 0;
 
     for (const vaccine of vaccines) {
+      if (vaccine.recommendationKind !== 'ROUTINE') {
+        continue;
+      }
+
       if (appliedVaccineIds.has(vaccine.id)) {
         continue;
       }
 
       const dueDate = addMonthsClamped(baby.birthDate, vaccine.recommendedAgeInMonths);
+      if (dueDate.getTime() < vaccine.effectiveFrom.getTime()) {
+        continue;
+      }
+
       const record = BabyVaccineRecord.derive({
         id: `${baby.id}:${vaccine.id}`,
         babyId: baby.id,

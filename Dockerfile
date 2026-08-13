@@ -11,7 +11,7 @@ RUN npm ci
 FROM deps AS build
 COPY prisma ./prisma
 RUN npx prisma generate
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.seed.json ./
 COPY src ./src
 RUN npm run build
 
@@ -28,8 +28,9 @@ ENV NODE_ENV=production
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/prisma ./prisma
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/dist-seed ./dist-seed
 COPY package.json ./
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist-seed/prisma/seed.js && node dist/main.js"]

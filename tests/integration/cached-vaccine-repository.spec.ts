@@ -1,27 +1,30 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { CachedVaccineRepository } from '../../src/infrastructure/database/repositories/cached-vaccine.repository';
+import {
+  CachedVaccineRepository,
+  VACCINE_CATALOG_CACHE_KEY,
+} from '../../src/infrastructure/database/repositories/cached-vaccine.repository';
 import { PrismaVaccineRepository } from '../../src/infrastructure/database/repositories/prisma-vaccine.repository';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
 import { redis } from '../../src/infrastructure/cache/redis-client';
 import { VACCINE_CATALOG_SEED } from '../../prisma/vaccine-catalog-seed-data';
 
-const CACHE_KEY = 'vaccines:catalog';
-
 describe('CachedVaccineRepository (real Redis + Postgres)', () => {
   beforeEach(async () => {
-    await redis.del(CACHE_KEY);
+    await redis.del(VACCINE_CATALOG_CACHE_KEY);
 
     for (const vaccine of VACCINE_CATALOG_SEED) {
       await prisma.vaccine.upsert({
-        where: { name_doseNumber: { name: vaccine.name, doseNumber: vaccine.doseNumber } },
-        update: { description: vaccine.description },
+        where: {
+          scheduleVersion_code: { scheduleVersion: vaccine.scheduleVersion, code: vaccine.code },
+        },
+        update: { description: vaccine.description, isActive: true },
         create: vaccine,
       });
     }
   });
 
   afterAll(async () => {
-    await redis.del(CACHE_KEY);
+    await redis.del(VACCINE_CATALOG_CACHE_KEY);
     await prisma.$disconnect();
   });
 
@@ -40,7 +43,7 @@ describe('CachedVaccineRepository (real Redis + Postgres)', () => {
     expect(cachedBcg?.description).toBe(originalDescription);
     expect(cachedBcg?.description).not.toBe('Updated description');
 
-    await redis.del(CACHE_KEY);
+    await redis.del(VACCINE_CATALOG_CACHE_KEY);
 
     const thirdRead = await repository.findAll();
     const freshBcg = thirdRead.find((vaccine) => vaccine.id === bcg.id);

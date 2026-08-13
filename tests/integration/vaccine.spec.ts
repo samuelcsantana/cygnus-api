@@ -3,6 +3,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
 import { VACCINE_CATALOG_SEED } from '../../prisma/vaccine-catalog-seed-data';
+import { redis } from '../../src/infrastructure/cache/redis-client';
+import { VACCINE_CATALOG_CACHE_KEY } from '../../src/infrastructure/database/repositories/cached-vaccine.repository';
 
 describe('Vaccine routes', () => {
   let app: FastifyInstance;
@@ -13,11 +15,15 @@ describe('Vaccine routes', () => {
 
     for (const vaccine of VACCINE_CATALOG_SEED) {
       await prisma.vaccine.upsert({
-        where: { name_doseNumber: { name: vaccine.name, doseNumber: vaccine.doseNumber } },
-        update: {},
+        where: {
+          scheduleVersion_code: { scheduleVersion: vaccine.scheduleVersion, code: vaccine.code },
+        },
+        update: { isActive: true },
         create: vaccine,
       });
     }
+
+    await redis.del(VACCINE_CATALOG_CACHE_KEY);
   });
 
   afterAll(async () => {
@@ -73,11 +79,11 @@ describe('Vaccine routes', () => {
   }
 
   describe('GET /babies/:babyId/vaccines', () => {
-    it('returns the schedule grouped by age, marking overdue doses as DELAYED', async () => {
+    it('returns the current schedule without retroactive overdue statuses', async () => {
       const { cookie, csrfToken } = await registerAndLogin('parent-schedule@example.com');
-      const oldBirthDate = new Date();
-      oldBirthDate.setUTCMonth(oldBirthDate.getUTCMonth() - 6);
-      const babyId = await createBaby(cookie, csrfToken, oldBirthDate.toISOString().slice(0, 10));
+      const yesterday = new Date();
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      const babyId = await createBaby(cookie, csrfToken, yesterday.toISOString().slice(0, 10));
 
       const response = await app.inject({
         method: 'GET',
@@ -87,7 +93,12 @@ describe('Vaccine routes', () => {
 
       expect(response.statusCode).toBe(200);
 
-      const schedule = response.json();
+      const responseBody = response.json();
+      expect(responseBody.metadata).toMatchObject({
+        version: 'PNI-2026-CHILD-2026-07-29',
+        sourceUpdatedAt: '2026-07-29',
+      });
+      const schedule = responseBody.groups;
       expect(Array.isArray(schedule)).toBe(true);
 
       const expectedAges = [...new Set(VACCINE_CATALOG_SEED.map((vaccine) => vaccine.recommendedAgeInMonths))].sort(
@@ -96,19 +107,23 @@ describe('Vaccine routes', () => {
       expect(schedule.map((group: { ageInMonths: number }) => group.ageInMonths)).toEqual(expectedAges);
 
       const allItems = schedule.flatMap(
-        (group: { items: { recommendedAgeInMonths: number; status: string }[] }) => group.items,
+        (group: {
+          items: { recommendedAgeInMonths: number; recommendationKind: string; status: string }[];
+        }) => group.items,
       );
       expect(allItems).toHaveLength(VACCINE_CATALOG_SEED.length);
 
-      // The baby is 6 months old: doses due before 6 months are overdue (never applied). Doses
-      // due at exactly 6 months are due "today", which the domain treats as PENDING, not DELAYED
-      // (see BabyVaccineRecord.derive) — so the 6-month boundary itself goes in notYetDueItems.
-      const dueItems = allItems.filter((item) => item.recommendedAgeInMonths < 6);
-      const notYetDueItems = allItems.filter((item) => item.recommendedAgeInMonths >= 6);
+      // Only birth doses are overdue for a one-day-old baby. Conditional and recurring
+      // entries stay informational and never become overdue automatically.
+      const routineItems = allItems.filter((item) => item.recommendationKind === 'ROUTINE');
+      const guidanceItems = allItems.filter((item) => item.recommendationKind !== 'ROUTINE');
+      const dueItems = routineItems.filter((item) => item.recommendedAgeInMonths === 0);
+      const notYetDueItems = routineItems.filter((item) => item.recommendedAgeInMonths > 0);
       expect(dueItems.length).toBeGreaterThan(0);
       expect(notYetDueItems.length).toBeGreaterThan(0);
       expect(dueItems.every((item) => item.status === 'DELAYED')).toBe(true);
       expect(notYetDueItems.every((item) => item.status === 'PENDING')).toBe(true);
+      expect(guidanceItems.every((item) => item.status === 'GUIDANCE')).toBe(true);
     });
 
     it('returns PENDING for a newborn whose doses are not due yet', async () => {
@@ -122,7 +137,7 @@ describe('Vaccine routes', () => {
         headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
-      const schedule = response.json();
+      const schedule = response.json().groups;
       const birthDoseGroup = schedule.find((group: { ageInMonths: number }) => group.ageInMonths === 0);
       const twoMonthGroup = schedule.find((group: { ageInMonths: number }) => group.ageInMonths === 2);
 
@@ -172,7 +187,7 @@ describe('Vaccine routes', () => {
         headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
-      const schedule = scheduleResponse.json();
+      const schedule = scheduleResponse.json().groups;
       const item = schedule
         .flatMap((group: { items: { vaccineId: string }[] }) => group.items)
         .find((scheduleItem: { vaccineId: string }) => scheduleItem.vaccineId === vaccine.id);
@@ -212,7 +227,7 @@ describe('Vaccine routes', () => {
         headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
-      const schedule = scheduleResponse.json();
+      const schedule = scheduleResponse.json().groups;
       const item = schedule
         .flatMap((group: { items: { vaccineId: string }[] }) => group.items)
         .find((scheduleItem: { vaccineId: string }) => scheduleItem.vaccineId === vaccine.id);
@@ -235,7 +250,7 @@ describe('Vaccine routes', () => {
         headers: { cookie, 'x-csrf-token': csrfToken },
       });
 
-      const schedule = scheduleResponse.json();
+      const schedule = scheduleResponse.json().groups;
       const item = schedule.flatMap((group: { items: unknown[] }) => group.items)[0] as {
         batchNumber: string | null;
         location: string | null;
