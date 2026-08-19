@@ -33,8 +33,9 @@ jobs:
       # tooling with no non-breaking upgrade path.
       #
       # This passes only because of the `deepmerge-ts` override in
-      # package.json — docs/dependency-overrides.md explains why npm and a
-      # Prisma upgrade both fail to resolve it. Drop the override once
+      # package.json. Neither npm nor a Prisma upgrade resolves it on its own:
+      # every published @prisma/config, 7.9.1 included, pins deepmerge-ts 7.1.5,
+      # so the advisory range covers the whole line. Drop the override once
       # @prisma/config depends on 8.x itself; this job is what will tell you
       # if that was premature.
       #
