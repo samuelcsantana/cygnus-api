@@ -55,7 +55,7 @@ export class EmailService implements ReminderEmailSender {
     const html = `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #1f2933;">
         <h1 style="color: #2A9D8F; font-size: 20px;">Você foi convidado(a) para cuidar de ${babyName}</h1>
-        <p>${inviterName} convidou você para acompanhar, junto com ele(a), o acompanhamento de saúde de ${babyName} no Meu Neném — vacinas, consultas e marcos de desenvolvimento.</p>
+        <p>${inviterName} convidou você para acompanhar, junto com ele(a), o acompanhamento de saúde de ${babyName} no Cygnus — vacinas, consultas e marcos de desenvolvimento.</p>
         <p>
           <a href="${inviteUrl}" style="display: inline-block; background-color: #2A9D8F; color: #ffffff; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: bold;">
             Aceitar convite
@@ -77,8 +77,8 @@ export class EmailService implements ReminderEmailSender {
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #1f2933;">
         <h1 style="color: #2A9D8F; font-size: 20px;">Vacina atrasada: ${vaccineName}</h1>
         <p>A vacina <strong>${vaccineName}</strong> de ${babyName} está atrasada no calendário de vacinação.</p>
-        <p>Acesse o Meu Neném para registrar a aplicação ou reagendar com o pediatra.</p>
-        <p style="font-size: 13px; color: #6b7280;">Você está recebendo este e-mail porque é responsável por ${babyName} no Meu Neném. Você pode desativar lembretes por e-mail nas configurações do seu perfil.</p>
+        <p>Acesse o Cygnus para registrar a aplicação ou reagendar com o pediatra.</p>
+        <p style="font-size: 13px; color: #6b7280;">Você está recebendo este e-mail porque é responsável por ${babyName} no Cygnus. Você pode desativar lembretes por e-mail nas configurações do seu perfil.</p>
       </div>
     `.trim();
 
@@ -95,8 +95,8 @@ export class EmailService implements ReminderEmailSender {
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #1f2933;">
         <h1 style="color: #2A9D8F; font-size: 20px;">Consulta próxima de ${babyName}</h1>
         <p>${babyName} tem consulta marcada com <strong>${doctorName}</strong> em <strong>${formattedDate}</strong>.</p>
-        <p>Acesse o Meu Neném para ver mais detalhes ou reagendar, se necessário.</p>
-        <p style="font-size: 13px; color: #6b7280;">Você está recebendo este e-mail porque é responsável por ${babyName} no Meu Neném. Você pode desativar lembretes por e-mail nas configurações do seu perfil.</p>
+        <p>Acesse o Cygnus para ver mais detalhes ou reagendar, se necessário.</p>
+        <p style="font-size: 13px; color: #6b7280;">Você está recebendo este e-mail porque é responsável por ${babyName} no Cygnus. Você pode desativar lembretes por e-mail nas configurações do seu perfil.</p>
       </div>
     `.trim();
 
