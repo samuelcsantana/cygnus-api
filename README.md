@@ -1,6 +1,6 @@
 # cygnus-api
 
-Backend API for **Cygnus** — a mobile-first app that helps parents track their child's health and development (vaccines, appointments, developmental milestones). Consumed by the `cygnus` frontend (separate repository). See `CLAUDE.md` for full architecture, security, and workflow conventions.
+Backend API for **Cygnus** — a mobile-first app that helps parents track their child's health and development (vaccines, appointments, developmental milestones). Consumed by the `cygnus` frontend (separate repository).
 
 ## Stack
 
