@@ -1,7 +1,23 @@
 # Deployment (Render)
 
 `render.yaml` is a Blueprint: from the Render dashboard, **New → Blueprint**, point it at this repository, and it
-creates the web service, the Postgres database and the Key Value (Redis) instance together, wired to each other.
+creates the web service and the Key Value (Redis) instance, wired to each other.
+
+## The database is Neon, not Render
+
+Deliberately outside the Blueprint. Render's free Postgres is **deleted after 30 days**, which is an unacceptable
+home for the only copy of anyone's vaccination records — the kind of default that is fine for a demo and quietly
+catastrophic for a real user. Neon's free tier persists.
+
+`DATABASE_URL` is therefore a prompted secret (`sync: false`) rather than a `fromDatabase` reference. Two things
+to get right when pasting it:
+
+- **Use the pooled connection string** (the host containing `-pooler`), with `sslmode=require`. This service keeps
+  a long-lived pool of its own, and Neon's free tier caps direct connections low enough that a redeploy
+  overlapping the previous instance can exhaust them.
+- **Migrations may need the direct host.** `prisma migrate deploy` runs on container start and does not always
+  behave through a transaction pooler. A prepared-statement error at boot is that, not a schema problem — point
+  the migration at the non-pooled host.
 
 ## Domains, and why they are not arbitrary
 
@@ -57,7 +73,6 @@ after that lands.
 
 ### Free tier shapes behaviour, not just cost
 
-- A free Postgres instance is **deleted after 30 days**.
 - A free web service sleeps when idle. The BullMQ worker runs in this same process, so it sleeps too — the 08:00
   reminder sweep will not fire dependably until this is a paid instance. The retry and dead-letter work in
   `docs/queue-reliability.md` assumes a process that is actually running at 08:00.

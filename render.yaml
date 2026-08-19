@@ -3,13 +3,15 @@
 #
 # Docs: https://render.com/docs/blueprint-spec
 #
-# Everything here is on the free tier. Two consequences worth knowing before
-# this carries anything real:
-#   - a free Postgres instance is deleted after 30 days;
-#   - a free web service sleeps after inactivity, so the first request after
-#     idling pays a cold start, and the BullMQ worker in this same process is
-#     asleep along with it — the 08:00 reminder sweep will not fire reliably
-#     until this moves to a paid instance.
+# Postgres is NOT declared here: the database is Neon, managed outside Render.
+# Render's own free Postgres is deleted after 30 days, which is a poor home for
+# the only copy of anyone's vaccination records. DATABASE_URL is therefore a
+# prompted secret rather than a `fromDatabase` reference — see below.
+#
+# The rest is on Render's free tier, with one consequence worth knowing: a free
+# web service sleeps when idle, and the BullMQ worker runs in this same
+# process, so it sleeps too. The 08:00 reminder sweep will not fire dependably
+# until this is a paid instance.
 services:
   - name: cygnus-api
     type: web
@@ -39,10 +41,17 @@ services:
       # different site silently breaks authentication.
       - key: CORS_ORIGIN
         value: https://cygnus.samuelsantana.dev
+      # Neon, not a Render database. Use Neon's **pooled** connection string
+      # (the host with `-pooler` in it) with `sslmode=require`: this service
+      # holds a long-lived pool of its own, and the free Neon tier caps direct
+      # connections low enough that a redeploy overlapping the old instance can
+      # exhaust them.
+      #
+      # `prisma migrate deploy` runs on container start and does not go through
+      # the pooler well — if migrations fail with a prepared-statement error,
+      # that is why; run them against the direct (non-pooled) host instead.
       - key: DATABASE_URL
-        fromDatabase:
-          name: cygnus-postgres
-          property: connectionString
+        sync: false
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -69,6 +78,3 @@ services:
     # vaccine-catalog cache are the only clients; nothing needs public access.
     ipAllowList: []
 
-databases:
-  - name: cygnus-postgres
-    plan: free
