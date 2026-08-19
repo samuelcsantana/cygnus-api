@@ -38,12 +38,19 @@ services:
       # and credentials: true, so a wildcard would be rejected by the browser
       # for credentialed requests anyway.
       #
-      # This shares an eTLD+1 with the API's own domain
-      # (api.cygnus.samuelsantana.dev) on purpose: the auth cookies are
-      # SameSite=Strict, so a frontend on a different registrable domain — a
-      # *.vercel.app URL, for instance — would never have them sent back, and
-      # every request after login would 401. Changing this value to a
-      # different site silently breaks authentication.
+      # Note what this is *not* doing any more. The plan was to put this API on
+      # api.cygnus.samuelsantana.dev so it shared a registrable domain with the
+      # frontend, because the auth cookies are SameSite=Strict and a cross-site
+      # pair would 401 every request after a successful login. Render only sells
+      # custom domains on paid instances, so this service stays on
+      # *.onrender.com and the frontend proxies /api/* and /uploads/* to it
+      # instead (see cygnus/vercel.json). The browser therefore never makes a
+      # cross-origin call here at all, and CORS stops being what holds the
+      # session together.
+      #
+      # It still matters, because this host is publicly reachable: it is what
+      # stops a page on some other origin from calling this API with the user's
+      # cookies. Keep it pointed at the real frontend origin.
       - key: CORS_ORIGIN
         value: https://cygnus.samuelsantana.dev
       # Neon, not a Render database. Use Neon's **pooled** connection string
