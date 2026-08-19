@@ -16,6 +16,11 @@ services:
   - name: cygnus-api
     type: web
     runtime: docker
+    # Same region as the Neon project (aws-us-east-2). Render defaults to
+    # Oregon, and the database is in Ohio: leaving it unset puts every query
+    # on a cross-continent round trip. A service region cannot be changed
+    # after creation, only recreated, so it belongs here and not in a fix.
+    region: ohio
     plan: free
     dockerfilePath: ./Dockerfile
     # The Dockerfile's CMD runs `prisma migrate deploy` before starting the
@@ -73,6 +78,10 @@ services:
 
   - name: cygnus-keyvalue
     type: keyvalue
+    # Must match the web service above: Render private networking only
+    # reaches services in the same region, and this instance is not
+    # publicly exposed.
+    region: ohio
     plan: free
     # Reachable only from services inside this Render account. BullMQ and the
     # vaccine-catalog cache are the only clients; nothing needs public access.
