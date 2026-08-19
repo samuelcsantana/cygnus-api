@@ -3,7 +3,11 @@ import { env } from './shared/config/env';
 import { logger } from './shared/logging/logger';
 import { prisma } from './infrastructure/database/prisma-client';
 import { redis } from './infrastructure/cache/redis-client';
-import { reminderQueue, scheduleDailyReminderJob } from './infrastructure/queue/reminder-queue';
+import {
+  reminderDeadLetterQueue,
+  reminderQueue,
+  scheduleDailyReminderJob,
+} from './infrastructure/queue/reminder-queue';
 import { createReminderWorker } from './infrastructure/queue/reminder-worker';
 
 async function start() {
@@ -16,6 +20,7 @@ async function start() {
     await app.close();
     await reminderWorker.close();
     await reminderQueue.close();
+    await reminderDeadLetterQueue.close();
     await prisma.$disconnect();
     await redis.quit();
     process.exit(0);
