@@ -19,6 +19,19 @@ to get right when pasting it:
   behave through a transaction pooler. A prepared-statement error at boot is that, not a schema problem — point
   the migration at the non-pooled host.
 
+## Region
+
+Both services declare `region: ohio` because the Neon project lives in `aws-us-east-2`. Render's default is
+Oregon, so leaving the field out would put a US-west API in front of a US-east database and add a
+cross-continent round trip to **every** query — invisible in the build, visible in every response time.
+
+The Key Value instance repeats the region for a harder reason: Render's private networking only reaches
+services in the same region, and `REDIS_URL` is wired through `fromService`. A region mismatch there does not
+degrade performance, it fails to connect.
+
+Neither is adjustable later. Render fixes a service's region at creation; changing it means deleting the
+service and applying the Blueprint again.
+
 ## Domains, and why they are not arbitrary
 
 | Service | Host |
