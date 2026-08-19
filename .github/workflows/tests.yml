@@ -1,0 +1,96 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  # No branch filter: a stacked PR targeting another feature branch still
+  # needs to be tested, and this repo gates everything through PRs anyway.
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # The suite is mostly integration tests against a real Postgres and a real
+    # Redis — no mocking (see tests/integration/). Both services mirror the
+    # images in docker-compose.yml so CI and local development fail the same
+    # way. Redis runs without a password here: GitHub service containers can't
+    # override the image's command, so `--requirepass` isn't available; the
+    # URL below simply omits credentials.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cygnus_user
+          POSTGRES_PASSWORD: cygnus_test_password
+          POSTGRES_DB: cygnus_db_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cygnus_user -d cygnus_db_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `npm test` and `npm run test:migrate` both run through
+      # `dotenv -e .env.test`, so CI writes that file rather than teaching the
+      # scripts a CI-only code path — the command that runs here is byte for
+      # byte the one run locally. Values mirror .env.test.example, pointed at
+      # the service containers above.
+      #
+      # The secrets are throwaway and exist only to satisfy the zod schema in
+      # src/shared/config/env.ts (JWT secrets must be >= 32 chars). Nothing
+      # here is a credential: the database is created fresh by the service
+      # container and destroyed with the runner.
+      #
+      # REDIS_URL keeps the /1 logical database from .env.test.example, since
+      # CachedVaccineRepository caches the catalog under a fixed key with no
+      # invalidation.
+      - name: Write test environment
+        run: |
+          cat > .env.test <<'EOF'
+          NODE_ENV=test
+          PORT=3005
+          HOST=0.0.0.0
+          CORS_ORIGIN=http://localhost:4205
+          DATABASE_URL=postgresql://cygnus_user:cygnus_test_password@localhost:5432/cygnus_db_test?schema=public
+          REDIS_URL=redis://localhost:6379/1
+          JWT_ACCESS_SECRET=ci_access_secret_not_a_real_credential_32
+          JWT_REFRESH_SECRET=ci_refresh_secret_not_a_real_credential_32
+          JWT_ACCESS_EXPIRES_IN=15m
+          JWT_REFRESH_EXPIRES_IN=7d
+          RESEND_API_KEY=
+          RESEND_FROM_EMAIL=Cygnus <onboarding@resend.dev>
+          EOF
+
+      # `prisma db push` rather than `migrate deploy`: the test database is
+      # thrown away with the runner, so there is nothing to migrate onto and
+      # no history worth replaying. Also regenerates the Prisma client.
+      - name: Push database schema
+        run: npm run test:migrate
+
+      - name: Run tests
+        run: npm test

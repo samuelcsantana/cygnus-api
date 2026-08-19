@@ -53,6 +53,9 @@
     "typescript": "^5.7.2",
     "vitest": "^4.1.10"
   },
+  "overrides": {
+    "deepmerge-ts": "^8.0.1"
+  },
   "allowScripts": {
     "@prisma/client@6.19.3": true,
     "@prisma/engines@6.19.3": true,
