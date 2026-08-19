@@ -82,6 +82,27 @@ one and belongs with the move to real domain events between services.
 
 Recorded here rather than fixed so it is a known limitation instead of a silent one.
 
+## The Redis instance itself
+
+Two properties of the deployed instance decide whether any of the above actually holds.
+
+**The eviction policy has to be `noeviction`.** Render creates a Key Value instance with `allkeys_lru`, which
+evicts the least recently used key when memory fills — and BullMQ's job hashes and the dead letter list are just
+keys. Under `allkeys_lru` a queued job can vanish before it is processed, and a dead letter can vanish after it is
+written: a failure gets recorded and then silently discarded, which is worse than never recording it, because the
+absence looks like success. `render.yaml` pins `maxmemoryPolicy: noeviction`, so a full instance refuses new writes
+with an error the producer can see.
+
+**Nothing survives a restart on the free plan.** Persistence is off and not configurable there, so the instance is
+memory-only. A restart empties the queue and the dead letter list together. The sweep itself recovers: it is a
+repeatable job with a deterministic id (`DAILY_REMINDER_JOB_ID`, `immediately: true`), re-registered on boot, and
+the idempotency above makes re-running it safe. The dead letters do not recover — they are diagnostic records, so
+what is lost is the account of what failed, not the data it was about.
+
+Together with the free instance sleeping when idle, which already makes the 08:00 sweep undependable, this is what
+"free tier" concretely costs here. Neither is a code defect and neither is addressed by the retry work; both are
+bought back with a paid plan.
+
 ## What is safe to claim from this
 
 - Task queue with a scheduled repeatable job, deduplicated by deterministic job id

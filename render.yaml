@@ -83,6 +83,13 @@ services:
     # publicly exposed.
     region: ohio
     plan: free
+    # BullMQ requires `noeviction`. Render's default for a Key Value instance is
+    # `allkeys_lru`, which under memory pressure evicts *any* key — job hashes and
+    # the dead letter list included. That would make the retry/backoff/DLQ work in
+    # docs/queue-reliability.md conditional on Redis not being busy: a dead letter
+    # that can be evicted is not a dead letter. With noeviction, a full instance
+    # rejects new writes with an error the producer can see instead.
+    maxmemoryPolicy: noeviction
     # Reachable only from services inside this Render account. BullMQ and the
     # vaccine-catalog cache are the only clients; nothing needs public access.
     ipAllowList: []
