@@ -21,8 +21,8 @@ const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
  *
  * Retrying is only safe because the sweep is idempotent: every notification is
  * gated on `NotificationRepository.existsForTrigger(babyId, type, referenceId)`,
- * so a second run over the same data writes nothing. See docs/queue-reliability.md
- * for the delivery guarantee and its one documented gap.
+ * so a second run over the same data writes nothing. The guarantee is at-least-once
+ * delivery with an idempotent consumer, not exactly-once.
  */
 export const REMINDER_JOB_OPTIONS: JobsOptions = {
   attempts: 5,
