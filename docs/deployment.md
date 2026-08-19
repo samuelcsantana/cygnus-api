@@ -32,25 +32,42 @@ degrade performance, it fails to connect.
 Neither is adjustable later. Render fixes a service's region at creation; changing it means deleting the
 service and applying the Blueprint again.
 
-## Domains, and why they are not arbitrary
+## Domains: the plan, and what replaced it
 
 | Service | Host |
 |---|---|
 | frontend (`cygnus`, on Vercel) | `cygnus.samuelsantana.dev` |
-| this API (on Render) | `api.cygnus.samuelsantana.dev` |
+| this API (on Render) | `cygnus-api.onrender.com` |
 
-Both sit under `samuelsantana.dev`, and that is the whole point rather than a cosmetic choice.
+They are on different registrable domains, and that would normally break authentication outright.
 
-The auth cookies are issued `SameSite=Strict` (`src/presentation/http/utils/auth-cookies.ts`). A browser only sends
-those to a **same-site** destination, and "same site" means the same registrable domain — `samuelsantana.dev` here.
-Had the frontend stayed on a `*.vercel.app` URL and this API on `*.onrender.com`, the two would be different sites:
-login would return 200, set a cookie the browser then declines to send back, and every request after it would 401.
-The bug looks like a broken session rather than a domain problem, which is what makes it expensive.
+The auth cookies are issued `SameSite=Strict` (`src/presentation/http/utils/auth-cookies.ts`), and a browser sends
+those only to a **same-site** destination — the same registrable domain. The original plan was therefore
+`api.cygnus.samuelsantana.dev`, sharing `samuelsantana.dev` with the frontend. **Render only offers custom domains
+on paid instances**, so on the free plan this service cannot leave `*.onrender.com`.
 
-So `CORS_ORIGIN` in `render.yaml` is not just an allowlist entry. **Pointing it at a host outside
-`samuelsantana.dev` silently breaks authentication**, no matter how correct CORS itself looks.
+Called directly from `cygnus.samuelsantana.dev`, that is a cross-site pair: login returns 200, the browser stores
+the cookie and then declines to send it back, and every request after it 401s. The bug looks like a broken session
+rather than a domain problem, which is what makes it expensive.
 
-`SECURE_COOKIES` needs no setting: it defaults to `NODE_ENV === 'production'`, and Render terminates TLS.
+`SameSite=None` is the obvious escape and is a dead end — Safari's ITP blocks third-party cookies outright and
+Chrome is moving the same way, so cross-site auth cookies are not weaker, they are broken in a real browser today.
+
+**The frontend proxies instead.** `cygnus/vercel.json` rewrites `/api/*` and `/uploads/*` to this service, so the
+browser only ever talks to its own origin. Same-origin is stricter than same-site, so `Strict` cookies work by
+construction. Two things follow for this repository:
+
+- **Nothing here needs to know about the proxy**, and that is deliberate. One caveat found the hard way: Vercel
+  forwards the *original* `Host` header, so `upload.routes.ts` — which builds a photo's public URL from
+  `request.headers.host` — returns a URL on the frontend's host. That is why `/uploads/*` is proxied too. Adding a
+  `PUBLIC_BASE_URL` here would have worked as well and was rejected: it puts the deployment topology into the
+  application.
+- **`CORS_ORIGIN` is no longer what holds the session together.** The browser makes no cross-origin call to this
+  API at all. It still matters, because this host stays publicly reachable: it is what stops a page on another
+  origin from calling this API with a user's cookies.
+
+`SECURE_COOKIES` needs no setting: it defaults to `NODE_ENV === 'production'`, and both Render and Vercel
+terminate TLS.
 
 ## `trustProxy`
 
