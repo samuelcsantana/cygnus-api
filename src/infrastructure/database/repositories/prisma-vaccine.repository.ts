@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../generated/prisma/client';
 import { VaccineRepository } from '../../../application/vaccine/vaccine-repository';
 import { Vaccine } from '../../../domain/vaccine/vaccine';
 

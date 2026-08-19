@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../generated/prisma/client';
 import { AppointmentRepository } from '../../../application/appointment/appointment-repository';
 import { Appointment, AppointmentStatus } from '../../../domain/appointment/appointment';
 
