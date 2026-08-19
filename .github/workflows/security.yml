@@ -3,8 +3,9 @@ name: Security
 on:
   push:
     branches: [main]
+  # No branch filter: a stacked PR targeting another feature branch still
+  # needs to be tested, and this repo gates everything through PRs anyway.
   pull_request:
-    branches: [main]
   schedule:
     # New advisories can land for dependencies already pinned in the lockfile,
     # with no code change of ours to trigger push/PR — catch those weekly too.
