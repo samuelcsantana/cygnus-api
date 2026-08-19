@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../generated/prisma/client';
 import { HealthChecker } from '../../domain/health/health-checker';
 import { logger } from '../../shared/logging/logger';
 

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../generated/prisma/client';
 import { NotificationRepository } from '../../../application/notification/notification-repository';
 import { Notification, NotificationType } from '../../../domain/notification/notification';
 
