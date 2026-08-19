@@ -86,9 +86,15 @@ jobs:
           RESEND_FROM_EMAIL=Cygnus <onboarding@resend.dev>
           EOF
 
+      # Explicit, because Prisma 7 generates into src/generated/prisma, which
+      # is git-ignored build output — a fresh checkout has no client at all and
+      # vitest cannot even resolve the imports without this.
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
       # `prisma db push` rather than `migrate deploy`: the test database is
       # thrown away with the runner, so there is nothing to migrate onto and
-      # no history worth replaying. Also regenerates the Prisma client.
+      # no history worth replaying.
       - name: Push database schema
         run: npm run test:migrate
 

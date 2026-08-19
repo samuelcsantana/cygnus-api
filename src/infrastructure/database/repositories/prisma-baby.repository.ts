@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../generated/prisma/client';
 import { BabyRepository } from '../../../application/baby/baby-repository';
 import { Baby, BabyGender } from '../../../domain/baby/baby';
 

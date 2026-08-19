@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../generated/prisma/client';
 import { MilestoneRepository } from '../../../application/milestone/milestone-repository';
 import { Milestone, MilestoneCategory } from '../../../domain/milestone/milestone';
 

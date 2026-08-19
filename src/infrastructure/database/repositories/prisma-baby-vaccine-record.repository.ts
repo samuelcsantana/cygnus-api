@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../generated/prisma/client';
 import { BabyVaccineRecordRepository } from '../../../application/vaccine/baby-vaccine-record-repository';
 import { BabyVaccineRecord, VaccineRecordSource, VaccineRecordStatus } from '../../../domain/vaccine/baby-vaccine-record';
 
