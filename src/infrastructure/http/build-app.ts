@@ -30,7 +30,17 @@ import { specialtyRoutes } from '../../presentation/http/routes/specialty.routes
 import { uploadRoutes } from '../../presentation/http/routes/upload.routes';
 
 export async function buildApp() {
-  const app = fastify({ loggerInstance: logger }).withTypeProvider<ZodTypeProvider>();
+  const app = fastify({
+    loggerInstance: logger,
+    // Without this, Fastify reads the raw socket address as the client IP —
+    // behind Render's reverse proxy that is Render's own IP on every single
+    // request, so @fastify/rate-limit's 100/minute would be a single bucket
+    // shared by the entire internet instead of a per-client limit. Trusting
+    // X-Forwarded-For is only safe because this service is always behind a
+    // proxy that overwrites it; do not copy this into something exposed
+    // directly. vertex-api carries the same fix for the same reason.
+    trustProxy: true,
+  }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
