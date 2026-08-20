@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import fastify, { FastifyError } from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import type { FastifyCorsOptionsDelegateCallback } from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
@@ -18,6 +19,7 @@ import { env } from '../../shared/config/env';
 import { logger } from '../../shared/logging/logger';
 import { MILESTONE_PHOTOS_DIR, UPLOADS_DIR } from '../../shared/config/uploads';
 import { healthRoutes } from '../../presentation/http/routes/health.routes';
+import { publicRoutes, PUBLIC_ROUTE_PREFIX } from '../../presentation/http/routes/public.routes';
 import { authRoutes } from '../../presentation/http/routes/auth.routes';
 import { userRoutes } from '../../presentation/http/routes/user.routes';
 import { babyRoutes } from '../../presentation/http/routes/baby.routes';
@@ -63,7 +65,25 @@ export async function buildApp() {
   });
 
   await app.register(helmet);
-  await app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
+  // Two CORS policies in one registration, chosen per request.
+  //
+  // Everything except /public/ keeps the strict policy: a single allowed origin, with
+  // credentials — that is what lets the SameSite=Strict session cookies work while still
+  // stopping a page on another origin from calling this API as the visitor.
+  //
+  // /public/ gets the opposite: any origin, and NO credentials. The two halves are load-bearing
+  // together. `Access-Control-Allow-Origin: *` and `Access-Control-Allow-Credentials: true` are
+  // mutually exclusive by browser rule, so omitting credentials is not a detail to tidy up later
+  // — it is the reason a wildcard here cannot be turned into an authenticated request. A widget
+  // embedded on any site can read the vaccine schedule; nothing can read a session with it.
+  await app.register(cors, (): FastifyCorsOptionsDelegateCallback => (request, callback) => {
+    if (request.url.startsWith(PUBLIC_ROUTE_PREFIX)) {
+      callback(null, { origin: '*', credentials: false, methods: ['GET', 'OPTIONS'] });
+      return;
+    }
+
+    callback(null, { origin: env.CORS_ORIGIN, credentials: true });
+  });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } });
@@ -87,6 +107,7 @@ export async function buildApp() {
       },
       tags: [
         { name: 'Health', description: 'Infrastructure health checks' },
+        { name: 'Public', description: 'Unauthenticated reference data, readable from any origin' },
         { name: 'Auth', description: 'Authentication and session management' },
         { name: 'Users', description: "The authenticated user's own profile and account" },
         { name: 'Babies', description: 'Baby profile management' },
@@ -107,6 +128,7 @@ export async function buildApp() {
     await app.register(swaggerUi, { routePrefix: '/docs' });
   }
 
+  await app.register(publicRoutes);
   await app.register(healthRoutes);
   await app.register(authRoutes);
   await app.register(userRoutes);
