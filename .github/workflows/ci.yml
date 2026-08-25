@@ -37,3 +37,25 @@ jobs:
       # has no ESLint setup, and adding one belongs in its own change.
       - name: Build
         run: npm run build
+
+      # openapi.json is committed so the frontend can read the contract without
+      # running this project — swagger-ui is not registered in production, so
+      # there is nowhere else to read it from. A committed document is only
+      # useful while it is true, hence this: regenerate it and fail if what is
+      # in the repository no longer matches the routes.
+      #
+      # The env values are placeholders that only exist to satisfy the schema
+      # in src/shared/config/env.ts. Nothing is connected to — the document is
+      # assembled from the route definitions, not from any running dependency —
+      # so this needs no service containers, unlike the test job.
+      - name: Check the committed OpenAPI document is current
+        run: |
+          npm run openapi:generate
+          git diff --exit-code openapi.json
+        env:
+          NODE_ENV: test
+          CORS_ORIGIN: http://localhost:4205
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public
+          REDIS_URL: redis://localhost:6379
+          JWT_ACCESS_SECRET: ci_placeholder_access_secret_at_least_32_chars
+          JWT_REFRESH_SECRET: ci_placeholder_refresh_secret_at_least_32_chars

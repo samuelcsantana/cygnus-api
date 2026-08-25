@@ -42,11 +42,23 @@ The compose file intentionally does **not** define a `web` service — `cygnus` 
 
 On container start, `npx prisma migrate deploy` runs automatically before the server boots.
 
+## API contract
+
+[`openapi.json`](./openapi.json) is the OpenAPI 3.0 document for every endpoint, committed and kept
+current by CI — regenerate it with `npm run openapi:generate` after changing any route. Point a
+client generator (`openapi-typescript`, `orval`) at it, or read it as the source of truth for
+request and response shapes.
+
+It is a file rather than a URL because the Swagger UI is registered only outside production, so
+`/docs` answers 404 on the deployed service. Running locally (`npm run dev`), the same document is
+browsable at `http://localhost:3005/docs`.
+
 ## Scripts
 
 | Command | What it does |
 |---|---|
 | `npm run dev` | Dev server with hot reload (`tsx watch`) |
+| `npm run openapi:generate` | Regenerate `openapi.json` from the routes |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run the compiled build |
 | `npm test` | Tests (Vitest) |
