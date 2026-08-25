@@ -14,6 +14,13 @@ model User {
   name                       String
   emailNotificationsEnabled  Boolean        @default(true) @map("email_notifications_enabled")
   createdAt                  DateTime       @default(now()) @map("created_at")
+  // How "log every other device out" is expressed: refresh tokens carry the version they were
+  // minted under, and a password reset increments this, so every token issued before it stops
+  // matching. A counter rather than a timestamp because `iat` only has second resolution — a
+  // time-based cutoff would keep alive exactly the tokens issued in the same second as the reset.
+  // Starts at 0 so tokens already in the wild, which carry no version claim at all, keep working.
+  // Lives in Postgres, not Redis: a Key Value flush must never un-invalidate a session.
+  sessionVersion             Int            @default(0) @map("session_version")
   babies                     Baby[]
   notifications              Notification[]
   babyGuardianships          BabyGuardian[]

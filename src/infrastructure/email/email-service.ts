@@ -16,6 +16,22 @@ export interface ReminderEmailSender {
   sendAppointmentReminderEmail(to: string, babyName: string, doctorName: string, scheduledAt: Date): Promise<void>;
 }
 
+/**
+ * Shared body for the two code e-mails. The code is rendered large and letter-spaced because it is
+ * read off the screen and typed into another one — and repeated in the subject line, so it is
+ * legible from a notification without opening anything.
+ */
+function verificationCodeHtml(parts: { heading: string; intro: string; code: string; footer: string }): string {
+  return `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #1f2933;">
+        <h1 style="color: #2A9D8F; font-size: 20px;">${parts.heading}</h1>
+        <p>${parts.intro}</p>
+        <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1f2933; margin: 24px 0;">${parts.code}</p>
+        <p style="font-size: 13px; color: #6b7280;">${parts.footer}</p>
+      </div>
+    `.trim();
+}
+
 // Thin wrapper around the Resend SDK, kept generic (`send`) so it can be reused for anything
 // transactional — guardian invites today, reminder emails later (vaccines/appointments), without
 // changing this class. Template-specific methods (like `sendGuardianInviteEmail` below) just build
@@ -69,6 +85,36 @@ export class EmailService implements ReminderEmailSender {
       to,
       subject: `${inviterName} convidou você para cuidar de ${babyName}`,
       html,
+    });
+  }
+
+  async sendPasswordlessCodeEmail(to: string, code: string): Promise<void> {
+    await this.send({
+      to,
+      subject: `${code} é o seu código de acesso ao Cygnus`,
+      html: verificationCodeHtml({
+        heading: 'Seu código de acesso',
+        intro: 'Use o código abaixo para entrar no Cygnus sem senha.',
+        code,
+        footer:
+          'O código vale por 10 minutos e só pode ser usado uma vez. Se não foi você que pediu, ignore este e-mail — ' +
+          'ninguém entra na sua conta só por ter pedido o código.',
+      }),
+    });
+  }
+
+  async sendPasswordResetCodeEmail(to: string, code: string): Promise<void> {
+    await this.send({
+      to,
+      subject: `${code} é o seu código para redefinir a senha do Cygnus`,
+      html: verificationCodeHtml({
+        heading: 'Redefinir sua senha',
+        intro: 'Use o código abaixo para criar uma nova senha do Cygnus.',
+        code,
+        footer:
+          'O código vale por 10 minutos e só pode ser usado uma vez. Ao redefinir a senha, você sai de todos os ' +
+          'outros aparelhos conectados. Se não foi você que pediu, ignore este e-mail: sua senha atual continua valendo.',
+      }),
     });
   }
 

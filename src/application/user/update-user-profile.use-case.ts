@@ -56,6 +56,9 @@ export class UpdateUserProfileUseCase {
       name: input.name ?? existingUser.name,
       emailNotificationsEnabled: input.emailNotificationsEnabled ?? existingUser.emailNotificationsEnabled,
       createdAt: existingUser.createdAt,
+      // Carried over explicitly: rebuilding the entity without it would reset the counter to zero
+      // and quietly bring every session a password reset had just killed back to life.
+      sessionVersion: existingUser.sessionVersion,
     });
 
     await this.userRepository.save(updatedUser);

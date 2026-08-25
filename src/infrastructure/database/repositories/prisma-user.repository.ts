@@ -9,6 +9,7 @@ function toDomain(record: {
   name: string;
   emailNotificationsEnabled: boolean;
   createdAt: Date;
+  sessionVersion: number;
 }): User {
   return User.create({
     id: record.id,
@@ -17,6 +18,7 @@ function toDomain(record: {
     name: record.name,
     emailNotificationsEnabled: record.emailNotificationsEnabled,
     createdAt: record.createdAt,
+    sessionVersion: record.sessionVersion,
   });
 }
 
@@ -43,12 +45,14 @@ export class PrismaUserRepository implements UserRepository {
         name: user.name,
         emailNotificationsEnabled: user.emailNotificationsEnabled,
         createdAt: user.createdAt,
+        sessionVersion: user.sessionVersion,
       },
       update: {
         email: user.email,
         passwordHash: user.passwordHash,
         name: user.name,
         emailNotificationsEnabled: user.emailNotificationsEnabled,
+        sessionVersion: user.sessionVersion,
       },
     });
   }

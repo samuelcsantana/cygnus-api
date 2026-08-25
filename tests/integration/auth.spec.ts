@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
+import { verificationCodeService } from '../../src/infrastructure/security/verification-code-service.instance';
 
 describe('Auth routes', () => {
   let app: FastifyInstance;
@@ -237,11 +239,187 @@ describe('Auth routes', () => {
     });
   });
 
+  // The assisted flows: a 6-digit code mailed to an address, exchanged for a session. Codes are
+  // planted through the real service rather than read out of an e-mail, because EmailService
+  // no-ops without RESEND_API_KEY — which is exactly how the test environment runs.
+  describe('assisted sign-in and password reset', () => {
+    async function register(email: string): Promise<void> {
+      await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: { email, password: 'S3cur3-Password', name: 'Jane Doe' },
+      });
+    }
+
+    // Requesting a code is throttled per address over a 15-minute window that outlives the suite,
+    // so a fixed address would start coming back throttled on the fifth run in a quarter of an
+    // hour — green in CI, flaky for whoever is iterating locally.
+    function uniqueEmail(prefix: string): string {
+      return `${prefix}-${randomUUID()}@example.com`;
+    }
+
+    async function issueCode(purpose: 'passwordless' | 'password-reset', email: string): Promise<string> {
+      const code = await verificationCodeService.issue(purpose, email);
+
+      if (!code) {
+        throw new Error(`Verification code request was throttled for ${email}`);
+      }
+
+      return code;
+    }
+
+    it('answers a code request identically for a registered and an unknown address', async () => {
+      const email = uniqueEmail('registered');
+      await register(email);
+
+      const registeredResponse = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/request',
+        payload: { email },
+      });
+      const unknownResponse = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/request',
+        payload: { email: 'nobody@example.com' },
+      });
+
+      expect(registeredResponse.statusCode).toBe(200);
+      expect(unknownResponse.statusCode).toBe(200);
+      expect(unknownResponse.json()).toEqual(registeredResponse.json());
+    });
+
+    it('exchanges a valid code for the same session cookies a password login sets', async () => {
+      const email = uniqueEmail('passwordless');
+      await register(email);
+      const code = await issueCode('passwordless', email);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/verify',
+        payload: { email, code },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(extractCookieNames(response.headers['set-cookie'])).toEqual(
+        expect.arrayContaining(['access_token', 'refresh_token', 'csrf_token']),
+      );
+
+      const meResponse = await app.inject({
+        method: 'GET',
+        url: '/auth/me',
+        headers: { cookie: extractCookieHeader(response.headers['set-cookie']) },
+      });
+      expect(meResponse.statusCode).toBe(200);
+      expect(meResponse.json().email).toBe(email);
+    });
+
+    it('rejects a wrong code with 401, and burns the real code after it is used once', async () => {
+      const email = uniqueEmail('single-use');
+      await register(email);
+      const code = await issueCode('passwordless', email);
+
+      const wrongCodeResponse = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/verify',
+        payload: { email, code: '000000' },
+      });
+      expect(wrongCodeResponse.statusCode).toBe(401);
+
+      const firstUse = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/verify',
+        payload: { email, code },
+      });
+      const replay = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/verify',
+        payload: { email, code },
+      });
+
+      expect(firstUse.statusCode).toBe(200);
+      expect(replay.statusCode).toBe(401);
+    });
+
+    it('refuses a sign-in code on the reset endpoint, and answers 401 for an address with no account', async () => {
+      const email = uniqueEmail('scoped');
+      await register(email);
+      const passwordlessCode = await issueCode('passwordless', email);
+
+      const crossPurposeResponse = await app.inject({
+        method: 'POST',
+        url: '/auth/password-reset/verify',
+        payload: { email, code: passwordlessCode, password: 'Another-Password' },
+      });
+      const unknownAddressResponse = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/verify',
+        payload: { email: 'nobody@example.com', code: '123456' },
+      });
+
+      expect(crossPurposeResponse.statusCode).toBe(401);
+      expect(unknownAddressResponse.statusCode).toBe(401);
+      expect(unknownAddressResponse.json().message).toBe(crossPurposeResponse.json().message);
+    });
+
+    it('resets the password, signs the user in, and kills the sessions that predate the reset', async () => {
+      const email = uniqueEmail('reset');
+      const oldSessionCookies = await registerAndLogin(email);
+
+      const code = await issueCode('password-reset', email);
+      const resetResponse = await app.inject({
+        method: 'POST',
+        url: '/auth/password-reset/verify',
+        payload: { email, code, password: 'A-Brand-New-Password' },
+      });
+
+      expect(resetResponse.statusCode).toBe(200);
+
+      // The device that was already logged in cannot rotate its session any more...
+      const oldSessionRefresh = await app.inject({
+        method: 'POST',
+        url: '/auth/refresh',
+        headers: { cookie: oldSessionCookies },
+      });
+      expect(oldSessionRefresh.statusCode).toBe(401);
+
+      // ...while the session the reset just handed back does.
+      const newSessionRefresh = await app.inject({
+        method: 'POST',
+        url: '/auth/refresh',
+        headers: { cookie: extractCookieHeader(resetResponse.headers['set-cookie']) },
+      });
+      expect(newSessionRefresh.statusCode).toBe(200);
+
+      const oldPasswordLogin = await app.inject({
+        method: 'POST',
+        url: '/auth/login',
+        payload: { email, password: 'S3cur3-Password' },
+      });
+      const newPasswordLogin = await app.inject({
+        method: 'POST',
+        url: '/auth/login',
+        payload: { email, password: 'A-Brand-New-Password' },
+      });
+
+      expect(oldPasswordLogin.statusCode).toBe(401);
+      expect(newPasswordLogin.statusCode).toBe(200);
+    });
+  });
+
   it('exposes all auth routes in the generated OpenAPI document', async () => {
     const response = await app.inject({ method: 'GET', url: '/docs/json' });
     const openApiDocument = response.json();
 
-    for (const path of ['/auth/register', '/auth/login', '/auth/logout', '/auth/refresh']) {
+    for (const path of [
+      '/auth/register',
+      '/auth/login',
+      '/auth/logout',
+      '/auth/refresh',
+      '/auth/passwordless/request',
+      '/auth/passwordless/verify',
+      '/auth/password-reset/request',
+      '/auth/password-reset/verify',
+    ]) {
       expect(openApiDocument.paths[path]).toBeDefined();
       expect(openApiDocument.paths[path].post.tags).toContain('Auth');
     }

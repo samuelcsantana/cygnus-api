@@ -49,7 +49,7 @@ describe('AuthenticateUserUseCase', () => {
     const tokens = await useCase.execute({ email: 'parent@example.com', password: 'correct-password' });
 
     expect(passwordHasher.compare).toHaveBeenCalledWith('correct-password', existingUser.passwordHash);
-    expect(tokenService.generateTokenPair).toHaveBeenCalledWith('user-id');
+    expect(tokenService.generateTokenPair).toHaveBeenCalledWith('user-id', 0);
     expect(tokens).toEqual({ accessToken: 'access-token', refreshToken: 'refresh-token' });
   });
 
