@@ -2,24 +2,34 @@ import type { App } from '../../../infrastructure/http/build-app';
 import { RegisterUserUseCase } from '../../../application/user/register-user.use-case';
 import { AuthenticateUserUseCase } from '../../../application/user/authenticate-user.use-case';
 import { RefreshUserSessionUseCase } from '../../../application/user/refresh-user-session.use-case';
+import { RequestVerificationCodeUseCase } from '../../../application/user/request-verification-code.use-case';
+import { VerifyPasswordlessCodeUseCase } from '../../../application/user/verify-passwordless-code.use-case';
+import { ResetPasswordUseCase } from '../../../application/user/reset-password.use-case';
 import { EmailAlreadyInUseError } from '../../../application/user/errors/email-already-in-use.error';
 import { InvalidCredentialsError } from '../../../application/user/errors/invalid-credentials.error';
 import { InvalidTokenError } from '../../../application/user/errors/invalid-token.error';
+import { InvalidVerificationCodeError } from '../../../application/user/errors/invalid-verification-code.error';
 import { DomainError } from '../../../shared/errors/domain-error';
 import { PrismaUserRepository } from '../../../infrastructure/database/repositories/prisma-user.repository';
 import { BcryptPasswordHasher } from '../../../infrastructure/security/bcrypt-password-hasher';
 import { tokenService } from '../../../infrastructure/security/token-service.instance';
 import { tokenRevocationService } from '../../../infrastructure/security/token-revocation-service.instance';
+import { verificationCodeService } from '../../../infrastructure/security/verification-code-service.instance';
 import { revokeRefreshTokenIfPresent } from '../../../infrastructure/security/revoke-refresh-token';
+import { emailService } from '../../../infrastructure/email/email-service.instance';
+import { auditLogger } from '../../../infrastructure/audit/audit-logger.instance';
 import { prisma } from '../../../infrastructure/database/prisma-client';
 import { env } from '../../../shared/config/env';
 import { authenticate } from '../plugins/authenticate';
 import { REFRESH_TOKEN_COOKIE, clearAuthCookies, setAuthCookies } from '../utils/auth-cookies';
 import {
+  assistedRequestBodySchema,
   authErrorResponseSchema,
   authSuccessResponseSchema,
   currentUserResponseSchema,
   loginBodySchema,
+  passwordResetVerifyBodySchema,
+  passwordlessVerifyBodySchema,
   registerBodySchema,
   registerResponseSchema,
 } from '../schemas/auth.schema';
@@ -36,6 +46,38 @@ export async function authRoutes(app: App) {
   const registerUserUseCase = new RegisterUserUseCase(userRepository, passwordHasher);
   const authenticateUserUseCase = new AuthenticateUserUseCase(userRepository, passwordHasher, tokenService);
   const refreshUserSessionUseCase = new RefreshUserSessionUseCase(userRepository, tokenService, tokenRevocationService);
+
+  // EmailService no-ops when RESEND_API_KEY is unset — the default everywhere except production —
+  // so off-production the issued code is written to the log instead. Without that escape hatch the
+  // assisted flows cannot be exercised locally or in CI at all, and they fail in the one way they
+  // are built never to show: a 200 with nothing behind it.
+  const logIssuedCode = env.NODE_ENV !== 'production';
+
+  const requestPasswordlessCodeUseCase = new RequestVerificationCodeUseCase(
+    userRepository,
+    verificationCodeService,
+    'passwordless',
+    (to, code) => emailService.sendPasswordlessCodeEmail(to, code),
+    logIssuedCode,
+  );
+  const requestPasswordResetCodeUseCase = new RequestVerificationCodeUseCase(
+    userRepository,
+    verificationCodeService,
+    'password-reset',
+    (to, code) => emailService.sendPasswordResetCodeEmail(to, code),
+    logIssuedCode,
+  );
+  const verifyPasswordlessCodeUseCase = new VerifyPasswordlessCodeUseCase(
+    userRepository,
+    verificationCodeService,
+    tokenService,
+  );
+  const resetPasswordUseCase = new ResetPasswordUseCase(
+    userRepository,
+    verificationCodeService,
+    passwordHasher,
+    tokenService,
+  );
 
   app.route({
     method: 'POST',
@@ -210,6 +252,167 @@ export async function authRoutes(app: App) {
       request.log.info('auth.logout_succeeded');
 
       return reply.status(200).send({ status: 'ok', message: 'Logged out successfully' });
+    },
+  });
+
+  // ---------------------------------------------------------------------------------------------
+  // Assisted flows: proving control of an e-mail address with a 6-digit code, instead of knowing a
+  // password. Two shapes of the same machine — sign in without a password, and reset a forgotten
+  // one — each a `request` that mails a code and a `verify` that ends in a session.
+  //
+  // Both `request` routes answer 200 with an identical body whether or not the address has an
+  // account, whether or not the mail went out, and whether or not the throttle swallowed it. The
+  // response is a receipt for the request, never a statement about the account, or this pair of
+  // endpoints would become a way to ask which e-mails are registered in a children's health app.
+  //
+  // Neither verify route needs the CSRF header: the double-submit check lives in createAuthGuard,
+  // which only runs on authenticated routes, and these are public exactly like /auth/login.
+  // ---------------------------------------------------------------------------------------------
+
+  const ASSISTED_REQUEST_ACCEPTED = 'If that email has an account, a code is on its way';
+
+  app.route({
+    method: 'POST',
+    url: '/auth/passwordless/request',
+    config: { rateLimit: AUTH_RATE_LIMIT },
+    schema: {
+      tags: ['Auth'],
+      summary: 'Request a sign-in code',
+      description:
+        'Mails a 6-digit code that can be exchanged for a session at /auth/passwordless/verify. Always answers 200 ' +
+        'with the same body, including for an address that has no account, so the endpoint cannot be used to find ' +
+        'out which e-mails are registered. The code is valid for 10 minutes, is single-use, and allows 5 attempts.',
+      body: assistedRequestBodySchema,
+      response: {
+        200: authSuccessResponseSchema,
+        400: authErrorResponseSchema,
+        429: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      await requestPasswordlessCodeUseCase.execute(request.body);
+
+      return reply.status(200).send({ status: 'ok', message: ASSISTED_REQUEST_ACCEPTED });
+    },
+  });
+
+  app.route({
+    method: 'POST',
+    url: '/auth/passwordless/verify',
+    config: { rateLimit: AUTH_RATE_LIMIT },
+    schema: {
+      tags: ['Auth'],
+      summary: 'Exchange a sign-in code for a session',
+      description:
+        'Consumes the code mailed by /auth/passwordless/request and sets the same session cookies /auth/login does. ' +
+        'A wrong, expired, already-used or over-attempted code — and an address with no account — all answer 401 ' +
+        'with the same message, so nothing can be inferred from the failure.',
+      body: passwordlessVerifyBodySchema,
+      response: {
+        200: authSuccessResponseSchema,
+        400: authErrorResponseSchema,
+        401: authErrorResponseSchema,
+        429: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        const { userId, accessToken, refreshToken } = await verifyPasswordlessCodeUseCase.execute(request.body);
+
+        setAuthCookies(reply, accessToken, refreshToken);
+
+        request.log.info({ userId }, 'auth.passwordless_login_succeeded');
+
+        auditLogger.log({
+          userId,
+          action: 'auth.passwordless_login',
+          resourceType: 'User',
+          resourceId: userId,
+        });
+
+        return reply.status(200).send({ status: 'ok', message: 'Authenticated successfully' });
+      } catch (error) {
+        if (error instanceof InvalidVerificationCodeError) {
+          return reply.status(401).send({ status: 'error', message: error.message });
+        }
+
+        throw error;
+      }
+    },
+  });
+
+  app.route({
+    method: 'POST',
+    url: '/auth/password-reset/request',
+    config: { rateLimit: AUTH_RATE_LIMIT },
+    schema: {
+      tags: ['Auth'],
+      summary: 'Request a password reset code',
+      description:
+        'Mails a 6-digit code that can be exchanged for a new password at /auth/password-reset/verify. Answers 200 ' +
+        'identically for every address, registered or not. The code is valid for 10 minutes, is single-use, allows ' +
+        '5 attempts, and is scoped to this flow — a sign-in code cannot be used to change a password.',
+      body: assistedRequestBodySchema,
+      response: {
+        200: authSuccessResponseSchema,
+        400: authErrorResponseSchema,
+        429: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      await requestPasswordResetCodeUseCase.execute(request.body);
+
+      return reply.status(200).send({ status: 'ok', message: ASSISTED_REQUEST_ACCEPTED });
+    },
+  });
+
+  app.route({
+    method: 'POST',
+    url: '/auth/password-reset/verify',
+    config: { rateLimit: AUTH_RATE_LIMIT },
+    schema: {
+      tags: ['Auth'],
+      summary: 'Set a new password with a reset code',
+      description:
+        'Consumes the code mailed by /auth/password-reset/request, replaces the password, and signs the user in with ' +
+        'fresh cookies. Every other session is ended: refresh tokens issued before the reset stop working, so a ' +
+        'device the user was resetting *because of* keeps no way back in. Access tokens already issued elsewhere ' +
+        'still work until they expire (15 minutes). Failures answer 401 with the same message as any bad code.',
+      body: passwordResetVerifyBodySchema,
+      response: {
+        200: authSuccessResponseSchema,
+        400: authErrorResponseSchema,
+        401: authErrorResponseSchema,
+        429: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        const { userId, accessToken, refreshToken } = await resetPasswordUseCase.execute(request.body);
+
+        setAuthCookies(reply, accessToken, refreshToken);
+
+        request.log.info({ userId }, 'auth.password_reset_succeeded');
+
+        auditLogger.log({
+          userId,
+          action: 'auth.password_reset',
+          resourceType: 'User',
+          resourceId: userId,
+        });
+
+        return reply.status(200).send({ status: 'ok', message: 'Password updated successfully' });
+      } catch (error) {
+        if (error instanceof InvalidVerificationCodeError) {
+          return reply.status(401).send({ status: 'error', message: error.message });
+        }
+
+        throw error;
+      }
     },
   });
 }
