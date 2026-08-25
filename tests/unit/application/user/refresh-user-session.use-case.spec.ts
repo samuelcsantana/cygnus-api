@@ -21,7 +21,7 @@ function buildTokenService(overrides: Partial<TokenService> = {}): TokenService 
   return {
     generateTokenPair: vi.fn().mockReturnValue({ accessToken: 'new-access-token', refreshToken: 'new-refresh-token' }),
     verifyAccessToken: vi.fn(),
-    verifyRefreshToken: vi.fn().mockReturnValue({ sub: 'user-id', jti: 'old-jti', exp: futureExp }),
+    verifyRefreshToken: vi.fn().mockReturnValue({ sub: 'user-id', jti: 'old-jti', exp: futureExp, sessionVersion: 0 }),
     ...overrides,
   };
 }
@@ -53,7 +53,7 @@ describe('RefreshUserSessionUseCase', () => {
     expect(tokenService.verifyRefreshToken).toHaveBeenCalledWith('valid-refresh-token');
     expect(tokenRevocationService.isRevoked).toHaveBeenCalledWith('old-jti');
     expect(userRepository.findById).toHaveBeenCalledWith('user-id');
-    expect(tokenService.generateTokenPair).toHaveBeenCalledWith('user-id');
+    expect(tokenService.generateTokenPair).toHaveBeenCalledWith('user-id', 0);
     expect(tokens).toEqual({ accessToken: 'new-access-token', refreshToken: 'new-refresh-token' });
   });
 
@@ -93,6 +93,52 @@ describe('RefreshUserSessionUseCase', () => {
 
     await expect(useCase.execute('invalid-refresh-token')).rejects.toThrow(InvalidTokenError);
     expect(userRepository.findById).not.toHaveBeenCalled();
+  });
+
+  const userWhoResetTheirPassword = User.create({
+    id: 'user-id',
+    email: 'parent@example.com',
+    passwordHash: 'hashed-password',
+    name: 'Jane Doe',
+    sessionVersion: 1,
+  });
+
+  it('rejects a refresh token minted under an older session version', async () => {
+    const userRepository = buildUserRepository({ findById: vi.fn().mockResolvedValue(userWhoResetTheirPassword) });
+    const tokenService = buildTokenService();
+    const tokenRevocationService = buildTokenRevocationService();
+    const useCase = new RefreshUserSessionUseCase(userRepository, tokenService, tokenRevocationService);
+
+    await expect(useCase.execute('refresh-token-from-before-the-reset')).rejects.toThrow(InvalidTokenError);
+    expect(tokenService.generateTokenPair).not.toHaveBeenCalled();
+  });
+
+  it('accepts the refresh token minted under the current session version', async () => {
+    const userRepository = buildUserRepository({ findById: vi.fn().mockResolvedValue(userWhoResetTheirPassword) });
+    const tokenService = buildTokenService({
+      verifyRefreshToken: vi.fn().mockReturnValue({ sub: 'user-id', jti: 'old-jti', exp: futureExp, sessionVersion: 1 }),
+    });
+    const tokenRevocationService = buildTokenRevocationService();
+    const useCase = new RefreshUserSessionUseCase(userRepository, tokenService, tokenRevocationService);
+
+    await expect(useCase.execute('refresh-token-from-the-reset')).resolves.toEqual({
+      accessToken: 'new-access-token',
+      refreshToken: 'new-refresh-token',
+    });
+  });
+
+  it('treats a token from before the version claim existed as version 0, keeping old sessions alive', async () => {
+    const userRepository = buildUserRepository({ findById: vi.fn().mockResolvedValue(existingUser) });
+    const tokenService = buildTokenService({
+      verifyRefreshToken: vi.fn().mockReturnValue({ sub: 'user-id', jti: 'old-jti', exp: futureExp }),
+    });
+    const tokenRevocationService = buildTokenRevocationService();
+    const useCase = new RefreshUserSessionUseCase(userRepository, tokenService, tokenRevocationService);
+
+    await expect(useCase.execute('refresh-token-issued-before-the-deploy')).resolves.toEqual({
+      accessToken: 'new-access-token',
+      refreshToken: 'new-refresh-token',
+    });
   });
 
   it('rejects a refresh token whose user no longer exists', async () => {

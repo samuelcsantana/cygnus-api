@@ -28,6 +28,6 @@ export class AuthenticateUserUseCase {
       throw new InvalidCredentialsError();
     }
 
-    return this.tokenService.generateTokenPair(user.id);
+    return this.tokenService.generateTokenPair(user.id, user.sessionVersion);
   }
 }

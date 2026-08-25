@@ -8,6 +8,7 @@ export interface UserProps {
   name: string;
   emailNotificationsEnabled: boolean;
   createdAt: Date;
+  sessionVersion: number;
 }
 
 export class User {
@@ -17,6 +18,11 @@ export class User {
   readonly name: string;
   readonly emailNotificationsEnabled: boolean;
   readonly createdAt: Date;
+  /**
+   * Incremented to end every session this account has open — refresh tokens carry the version they
+   * were minted under, so bumping it invalidates all of them at once without enumerating any.
+   */
+  readonly sessionVersion: number;
 
   private constructor(props: UserProps) {
     this.id = props.id;
@@ -25,6 +31,7 @@ export class User {
     this.name = props.name;
     this.emailNotificationsEnabled = props.emailNotificationsEnabled;
     this.createdAt = props.createdAt;
+    this.sessionVersion = props.sessionVersion;
   }
 
   static create(props: {
@@ -34,6 +41,7 @@ export class User {
     name: string;
     emailNotificationsEnabled?: boolean;
     createdAt?: Date;
+    sessionVersion?: number;
   }): User {
     const name = props.name.trim();
 
@@ -50,6 +58,7 @@ export class User {
       name,
       emailNotificationsEnabled: props.emailNotificationsEnabled ?? true,
       createdAt: props.createdAt ?? new Date(),
+      sessionVersion: props.sessionVersion ?? 0,
     });
   }
 }

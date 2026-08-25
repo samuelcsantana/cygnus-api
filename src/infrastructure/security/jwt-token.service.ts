@@ -11,16 +11,19 @@ export class JwtTokenService implements TokenService {
     private readonly refreshExpiresIn: string,
   ) {}
 
-  generateTokenPair(userId: string): TokenPair {
+  generateTokenPair(userId: string, sessionVersion: number): TokenPair {
     const accessToken = jwt.sign({ sub: userId, type: 'access' }, this.accessSecret, {
       expiresIn: this.accessExpiresIn,
     } as SignOptions);
 
     // jti identifies this refresh token individually so a single one can be revoked (logout,
-    // rotation) without invalidating every session the user has.
-    const refreshToken = jwt.sign({ sub: userId, type: 'refresh', jti: randomUUID() }, this.refreshSecret, {
-      expiresIn: this.refreshExpiresIn,
-    } as SignOptions);
+    // rotation) without invalidating every session the user has; sessionVersion is the opposite
+    // handle — it invalidates all of them at once, without the server keeping a list.
+    const refreshToken = jwt.sign(
+      { sub: userId, type: 'refresh', jti: randomUUID(), sessionVersion },
+      this.refreshSecret,
+      { expiresIn: this.refreshExpiresIn } as SignOptions,
+    );
 
     return { accessToken, refreshToken };
   }
@@ -48,12 +51,13 @@ export class JwtTokenService implements TokenService {
         payload.type !== 'refresh' ||
         typeof payload.sub !== 'string' ||
         typeof payload.jti !== 'string' ||
-        typeof payload.exp !== 'number'
+        typeof payload.exp !== 'number' ||
+        (payload.sessionVersion !== undefined && typeof payload.sessionVersion !== 'number')
       ) {
         throw new InvalidTokenError();
       }
 
-      return { sub: payload.sub, jti: payload.jti, exp: payload.exp };
+      return { sub: payload.sub, jti: payload.jti, exp: payload.exp, sessionVersion: payload.sessionVersion };
     } catch {
       throw new InvalidTokenError();
     }

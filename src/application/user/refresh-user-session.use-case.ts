@@ -23,7 +23,15 @@ export class RefreshUserSessionUseCase {
       throw new InvalidTokenError();
     }
 
-    const tokenPair = this.tokenService.generateTokenPair(user.id);
+    // Bulk invalidation: a password reset increments the account's session version, so every
+    // refresh token minted before it stops matching here — no list of jtis to keep, and no clock to
+    // agree on. A token from before this claim existed carries no version and reads as 0, the value
+    // every account starts at.
+    if ((payload.sessionVersion ?? 0) !== user.sessionVersion) {
+      throw new InvalidTokenError();
+    }
+
+    const tokenPair = this.tokenService.generateTokenPair(user.id, user.sessionVersion);
 
     // Refresh tokens are single-use/rotating: revoke the one that was just spent so a leaked or
     // replayed copy of it is rejected immediately, functioning as reuse detection.
