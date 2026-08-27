@@ -60,6 +60,20 @@ export async function buildApp() {
       return reply.status(429).send({ status: 'error', message: error.message });
     }
 
+    // Fastify's own errors arrive carrying the status they should be answered with: an empty body
+    // sent with a JSON content-type is FST_ERR_CTP_EMPTY_JSON_BODY at 400, a wrong content-type is
+    // 415, an oversized payload 413. Without this branch every one of them fell through to the 500
+    // below, which tells the caller the server broke when it was the request that did — and files
+    // a fixable client mistake under "we have an outage".
+    //
+    // Their messages are framework text about the shape of the request ("Body cannot be empty when
+    // content-type is set to 'application/json'"), not anything of ours, so echoing them says only
+    // what the caller needs in order to send it correctly next time.
+    if (typeof error.statusCode === 'number' && error.statusCode >= 400 && error.statusCode < 500) {
+      request.log.warn({ err: error, statusCode: error.statusCode }, 'request.client_error');
+      return reply.status(error.statusCode).send({ status: 'error', message: error.message });
+    }
+
     request.log.error({ err: error }, 'request.unhandled_error');
     return reply.status(500).send({ status: 'error', message: 'Internal server error' });
   });
