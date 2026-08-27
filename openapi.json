@@ -7139,6 +7139,258 @@
           }
         }
       }
+    },
+    "/legal/acceptances": {
+      "get": {
+        "summary": "List the documents the authenticated user has accepted",
+        "tags": [
+          "Legal"
+        ],
+        "description": "Every (document, version) pair the user has accepted, newest first. The caller compares these against the versions currently in force and asks again for whichever differ.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "documentId": {
+                        "type": "string",
+                        "enum": [
+                          "privacy",
+                          "terms"
+                        ]
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "acceptedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "documentId",
+                      "version",
+                      "acceptedAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Record that the user accepted a version of a document",
+        "tags": [
+          "Legal"
+        ],
+        "description": "Answers 200, not 201, and is idempotent: accepting a version already accepted returns the original record with its original timestamp. A repeated POST is what a double-tap or a retried request looks like, and moving the timestamp would rewrite when consent was given.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "documentId": {
+                    "type": "string",
+                    "enum": [
+                      "privacy",
+                      "terms"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "The exact version string of the document that was shown and accepted. Accepting a version other than the one currently in force is recorded as given — it is a fact about the past, not a claim about the current text."
+                  }
+                },
+                "required": [
+                  "documentId",
+                  "version"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "documentId": {
+                      "type": "string",
+                      "enum": [
+                        "privacy",
+                        "terms"
+                      ]
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "acceptedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "documentId",
+                    "version",
+                    "acceptedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -7185,6 +7437,10 @@
     {
       "name": "Uploads",
       "description": "File uploads (milestone photos)"
+    },
+    {
+      "name": "Legal",
+      "description": "Which version of the privacy policy and terms a user has accepted"
     }
   ]
 }
