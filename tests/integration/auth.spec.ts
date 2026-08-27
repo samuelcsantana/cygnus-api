@@ -288,6 +288,53 @@ describe('Auth routes', () => {
       expect(unknownResponse.json()).toEqual(registeredResponse.json());
     });
 
+    it('answers a code request in the same time for a registered and an unknown address', async () => {
+      // The other half of the guarantee the test above covers. An identical body proves nothing
+      // if the clock answers the question instead: a registered address wrote a code to Redis and
+      // awaited a mail that an unknown address never triggered, and that measured 161ms against
+      // 4ms from outside.
+      //
+      // What this can and cannot catch is worth being explicit about. RESEND_API_KEY is unset in
+      // the test environment, so EmailService no-ops and the ~156ms the mail contributed is not
+      // reproducible here at all — the difference this would measure without the floor is under a
+      // millisecond. The assertion that carries the weight is therefore the floor itself: both
+      // paths must take at least as long as it, which is false the moment the floor is removed.
+      const samples = 5;
+      const registered: number[] = [];
+      const unknown: number[] = [];
+
+      for (let index = 0; index < samples; index++) {
+        const email = uniqueEmail(`timing-${index}`);
+        await register(email);
+
+        // Interleaved on purpose: measuring one case to exhaustion and then the other turns any
+        // drift on the machine running the suite into a difference between the cases.
+        let startedAt = performance.now();
+        await app.inject({ method: 'POST', url: '/auth/passwordless/request', payload: { email } });
+        registered.push(performance.now() - startedAt);
+
+        startedAt = performance.now();
+        await app.inject({
+          method: 'POST',
+          url: '/auth/passwordless/request',
+          payload: { email: `nobody-${index}@example.com` },
+        });
+        unknown.push(performance.now() - startedAt);
+      }
+
+      const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)]!;
+      const registeredMedian = median(registered);
+      const unknownMedian = median(unknown);
+
+      // 100 rather than the 120 the floor is set to: the assertion is that a floor is being
+      // applied at all, and leaving margin keeps a slow scheduler from failing the suite.
+      expect(unknownMedian).toBeGreaterThanOrEqual(100);
+      expect(registeredMedian).toBeGreaterThanOrEqual(100);
+
+      // And the two must be indistinguishable from one another.
+      expect(Math.abs(registeredMedian - unknownMedian)).toBeLessThan(50);
+    });
+
     it('exchanges a valid code for the same session cookies a password login sets', async () => {
       const email = uniqueEmail('passwordless');
       await register(email);
