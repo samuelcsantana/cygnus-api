@@ -21,11 +21,18 @@ export const appointmentIdParamsSchema = z.object({
 });
 
 export const createAppointmentBodySchema = z.object({
-  scheduledAt: z.string().datetime().describe('ISO-8601 date and time of the appointment. Cannot be in the past'),
+  scheduledAt: z.string().datetime().describe('ISO-8601 date and time of the appointment. Must be in the future unless status is COMPLETED'),
   doctorName: z.string().min(1),
   specialty: z.string().optional().describe('Medical specialty of the professional, e.g. Pediatria'),
   location: z.string().optional(),
   reason: z.string().optional().describe('Reason for the visit, e.g. routine check-up'),
+  status: z
+    .enum(['SCHEDULED', 'COMPLETED'])
+    .optional()
+    .describe(
+      'SCHEDULED (default) books an upcoming appointment and rejects a past date. COMPLETED records ' +
+        'a consultation that already happened and rejects a future one.',
+    ),
 });
 
 export const updateAppointmentBodySchema = z
