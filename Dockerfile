@@ -15,11 +15,13 @@ FROM deps AS build
 # `tsc` compiles the generated client along with the rest of src/.
 # prisma.config.ts is required too: it is where the schema path and datasource
 # URL now live, since schema.prisma no longer reads env("DATABASE_URL").
-# tsconfig.seed.json compiles the catalog sync into dist-seed so it can be run
-# from inside the runtime image. `prisma migrate deploy` in the CMD adds the
-# catalog columns but populates nothing, so a new schedule version reaches
-# production only when the sync is run against it — once, deliberately, after
-# the deploy that carries it.
+# tsconfig.seed.json compiles the catalog sync into dist-seed because the CMD
+# below runs it on every container start. `prisma migrate deploy` adds the
+# catalog columns but populates nothing, so the sync is the step that actually
+# puts a schedule version in the table — and making it part of the start
+# sequence is what keeps a new catalog from needing a manual release action
+# that someone has to remember. It is idempotent by construction: upsert keyed
+# on (schedule_version, code), then deactivate whatever is no longer current.
 COPY prisma ./prisma
 COPY prisma.config.ts tsconfig.json tsconfig.seed.json ./
 COPY src ./src
