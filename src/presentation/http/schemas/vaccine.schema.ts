@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format');
-const statusSchema = z.enum(['PENDING', 'APPLIED', 'DELAYED']);
+const statusSchema = z.enum(['PENDING', 'APPLIED', 'DELAYED', 'GUIDANCE']);
+const recommendationKindSchema = z.enum(['ROUTINE', 'CONDITIONAL', 'RECURRING']);
 
 export const vaccineScheduleParamsSchema = z.object({
   babyId: z.string().uuid(),
@@ -34,8 +35,10 @@ export const vaccineScheduleItemSchema = z.object({
   vaccineId: z.string().uuid(),
   name: z.string(),
   description: z.string(),
+  guidance: z.string().nullable(),
   doseNumber: z.number().int(),
   recommendedAgeInMonths: z.number().int(),
+  recommendationKind: recommendationKindSchema,
   status: statusSchema,
   applicationDate: dateOnlySchema.nullable(),
   notes: z.string().nullable(),
@@ -50,9 +53,23 @@ export const ageGroupScheduleSchema = z.object({
   items: z.array(vaccineScheduleItemSchema),
 });
 
+export const vaccineCatalogMetadataSchema = z.object({
+  version: z.string(),
+  sourceName: z.string(),
+  sourceOrganization: z.string(),
+  sourceUrl: z.string().url(),
+  sourceUpdatedAt: dateOnlySchema,
+  effectiveFrom: dateOnlySchema,
+  minimumAgeInMonths: z.number().int().nonnegative(),
+  maximumAgeInMonths: z.number().int().nonnegative(),
+});
+
 export const vaccineScheduleResponseSchema = z
-  .array(ageGroupScheduleSchema)
-  .describe('The full vaccination calendar for the baby, grouped by recommended age in months');
+  .object({
+    metadata: vaccineCatalogMetadataSchema,
+    groups: z.array(ageGroupScheduleSchema),
+  })
+  .describe('The current official vaccination calendar metadata and the schedule grouped by age');
 
 const adhocVaccineSourceSchema = z.enum(['CAMPAIGN', 'CUSTOM']);
 

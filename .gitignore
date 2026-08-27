@@ -1,5 +1,6 @@
 # Build output
 /dist/
+/dist-seed/
 /coverage/
 
 # User-uploaded files (served via @fastify/static, persisted via a Docker volume in prod)

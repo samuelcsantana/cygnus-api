@@ -96,6 +96,44 @@ describe('GenerateReminderNotificationsUseCase — vaccines', () => {
     expect(notificationRepository.save).not.toHaveBeenCalled();
   });
 
+  it('never creates overdue alerts for conditional or recurring recommendations', async () => {
+    const baby = buildBaby({ birthDate: new Date('2024-01-01T00:00:00.000Z') });
+    const conditional = buildVaccine({ id: 'conditional', recommendationKind: 'CONDITIONAL' });
+    const recurring = buildVaccine({ id: 'recurring', recommendationKind: 'RECURRING' });
+    const notificationRepository = buildNotificationRepository();
+    const useCase = buildUseCase({
+      babyRepository: buildBabyRepository({ findAll: vi.fn().mockResolvedValue([baby]) }),
+      vaccineRepository: buildVaccineRepository({
+        findAll: vi.fn().mockResolvedValue([conditional, recurring]),
+      }),
+      notificationRepository,
+    });
+
+    const result = await useCase.execute(referenceDate);
+
+    expect(result.createdCount).toBe(0);
+    expect(notificationRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('does not create a retroactive alert for a dose due before the catalog became effective', async () => {
+    const baby = buildBaby({ birthDate: new Date('2024-01-01T00:00:00.000Z') });
+    const vaccine = buildVaccine({
+      recommendedAgeInMonths: 0,
+      effectiveFrom: new Date('2026-07-29T00:00:00.000Z'),
+    });
+    const notificationRepository = buildNotificationRepository();
+    const useCase = buildUseCase({
+      babyRepository: buildBabyRepository({ findAll: vi.fn().mockResolvedValue([baby]) }),
+      vaccineRepository: buildVaccineRepository({ findAll: vi.fn().mockResolvedValue([vaccine]) }),
+      notificationRepository,
+    });
+
+    const result = await useCase.execute(new Date('2026-08-13T00:00:00.000Z'));
+
+    expect(result.createdCount).toBe(0);
+    expect(notificationRepository.save).not.toHaveBeenCalled();
+  });
+
   it('does not duplicate a notification that already exists for the same trigger', async () => {
     const baby = buildBaby({ birthDate: new Date('2024-01-01T00:00:00.000Z') });
     const vaccine = buildVaccine({ recommendedAgeInMonths: 0 });

@@ -6,6 +6,7 @@ import { BabyVaccineRecord } from '../../domain/vaccine/baby-vaccine-record';
 import { BabyVaccineRecordRepository } from './baby-vaccine-record-repository';
 import { VaccineRepository } from './vaccine-repository';
 import { VaccineNotFoundError } from './errors/vaccine-not-found.error';
+import { RecurringVaccineRequiresAdhocRecordError } from './errors/recurring-vaccine-requires-adhoc-record.error';
 
 export interface MarkVaccineAsAppliedInput {
   babyId: string;
@@ -34,6 +35,10 @@ export class MarkVaccineAsAppliedUseCase {
 
     if (!vaccine) {
       throw new VaccineNotFoundError();
+    }
+
+    if (vaccine.recommendationKind === 'RECURRING') {
+      throw new RecurringVaccineRequiresAdhocRecordError();
     }
 
     const existingRecord = await this.babyVaccineRecordRepository.findByBabyAndVaccine(

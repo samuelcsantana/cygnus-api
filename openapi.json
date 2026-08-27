@@ -3014,7 +3014,7 @@
         "tags": [
           "Vaccines"
         ],
-        "description": "Returns the full vaccination calendar for the baby, grouped by recommended age in months, with each vaccine marked as PENDING, DELAYED (past its due date) or APPLIED.",
+        "description": "Returns the active official vaccination calendar source and version, grouped by recommended age. Routine entries can be PENDING, DELAYED or APPLIED. Conditional and recurring guidance is never automatically labelled overdue.",
         "parameters": [
           {
             "schema": {
@@ -3028,97 +3028,167 @@
         ],
         "responses": {
           "200": {
-            "description": "The full vaccination calendar for the baby, grouped by recommended age in months",
+            "description": "The current official vaccination calendar metadata and the schedule grouped by age",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "ageInMonths": {
-                        "type": "integer"
-                      },
-                      "items": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "vaccineId": {
-                              "type": "string",
-                              "format": "uuid"
-                            },
-                            "name": {
-                              "type": "string"
-                            },
-                            "description": {
-                              "type": "string"
-                            },
-                            "doseNumber": {
-                              "type": "integer"
-                            },
-                            "recommendedAgeInMonths": {
-                              "type": "integer"
-                            },
-                            "status": {
-                              "type": "string",
-                              "enum": [
-                                "PENDING",
-                                "APPLIED",
-                                "DELAYED"
-                              ]
-                            },
-                            "applicationDate": {
-                              "type": "string",
-                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-                              "nullable": true
-                            },
-                            "notes": {
-                              "type": "string",
-                              "nullable": true
-                            },
-                            "batchNumber": {
-                              "type": "string",
-                              "nullable": true
-                            },
-                            "location": {
-                              "type": "string",
-                              "nullable": true
-                            },
-                            "professional": {
-                              "type": "string",
-                              "nullable": true
-                            },
-                            "photoUrl": {
-                              "type": "string",
-                              "nullable": true
-                            }
-                          },
-                          "required": [
-                            "vaccineId",
-                            "name",
-                            "description",
-                            "doseNumber",
-                            "recommendedAgeInMonths",
-                            "status",
-                            "applicationDate",
-                            "notes",
-                            "batchNumber",
-                            "location",
-                            "professional",
-                            "photoUrl"
-                          ],
-                          "additionalProperties": false
+                  "type": "object",
+                  "properties": {
+                    "metadata": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string"
+                        },
+                        "sourceName": {
+                          "type": "string"
+                        },
+                        "sourceOrganization": {
+                          "type": "string"
+                        },
+                        "sourceUrl": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "sourceUpdatedAt": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "effectiveFrom": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "minimumAgeInMonths": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "maximumAgeInMonths": {
+                          "type": "integer",
+                          "minimum": 0
                         }
-                      }
+                      },
+                      "required": [
+                        "version",
+                        "sourceName",
+                        "sourceOrganization",
+                        "sourceUrl",
+                        "sourceUpdatedAt",
+                        "effectiveFrom",
+                        "minimumAgeInMonths",
+                        "maximumAgeInMonths"
+                      ],
+                      "additionalProperties": false
                     },
-                    "required": [
-                      "ageInMonths",
-                      "items"
-                    ],
-                    "additionalProperties": false
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ageInMonths": {
+                            "type": "integer"
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "vaccineId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "guidance": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "doseNumber": {
+                                  "type": "integer"
+                                },
+                                "recommendedAgeInMonths": {
+                                  "type": "integer"
+                                },
+                                "recommendationKind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ROUTINE",
+                                    "CONDITIONAL",
+                                    "RECURRING"
+                                  ]
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "PENDING",
+                                    "APPLIED",
+                                    "DELAYED",
+                                    "GUIDANCE"
+                                  ]
+                                },
+                                "applicationDate": {
+                                  "type": "string",
+                                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                                  "nullable": true
+                                },
+                                "notes": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "batchNumber": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "location": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "professional": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "photoUrl": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "vaccineId",
+                                "name",
+                                "description",
+                                "guidance",
+                                "doseNumber",
+                                "recommendedAgeInMonths",
+                                "recommendationKind",
+                                "status",
+                                "applicationDate",
+                                "notes",
+                                "batchNumber",
+                                "location",
+                                "professional",
+                                "photoUrl"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "ageInMonths",
+                          "items"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
                   },
-                  "description": "The full vaccination calendar for the baby, grouped by recommended age in months"
+                  "required": [
+                    "metadata",
+                    "groups"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The current official vaccination calendar metadata and the schedule grouped by age"
                 }
               }
             }
@@ -3286,18 +3356,31 @@
                     "description": {
                       "type": "string"
                     },
+                    "guidance": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "doseNumber": {
                       "type": "integer"
                     },
                     "recommendedAgeInMonths": {
                       "type": "integer"
                     },
+                    "recommendationKind": {
+                      "type": "string",
+                      "enum": [
+                        "ROUTINE",
+                        "CONDITIONAL",
+                        "RECURRING"
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
                         "PENDING",
                         "APPLIED",
-                        "DELAYED"
+                        "DELAYED",
+                        "GUIDANCE"
                       ]
                     },
                     "applicationDate": {
@@ -3330,8 +3413,10 @@
                     "vaccineId",
                     "name",
                     "description",
+                    "guidance",
                     "doseNumber",
                     "recommendedAgeInMonths",
+                    "recommendationKind",
                     "status",
                     "applicationDate",
                     "notes",
@@ -3341,6 +3426,33 @@
                     "photoUrl"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
                 }
               }
             }

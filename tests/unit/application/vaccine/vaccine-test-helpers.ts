@@ -56,10 +56,17 @@ export function buildBabyGuardianRepository(overrides: Partial<BabyGuardianRepos
 export function buildVaccine(overrides: Partial<Parameters<typeof Vaccine.create>[0]> = {}): Vaccine {
   return Vaccine.create({
     id: 'vaccine-1',
+    code: 'birth-bcg',
     name: 'BCG',
     description: 'Protects against tuberculosis',
+    guidance: null,
     recommendedAgeInMonths: 0,
     doseNumber: 1,
+    recommendationKind: 'ROUTINE',
+    scheduleVersion: 'test-2026',
+    effectiveFrom: new Date('2020-01-01T00:00:00.000Z'),
+    effectiveTo: null,
+    isActive: true,
     ...overrides,
   });
 }

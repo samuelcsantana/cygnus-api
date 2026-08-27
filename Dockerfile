@@ -15,8 +15,13 @@ FROM deps AS build
 # `tsc` compiles the generated client along with the rest of src/.
 # prisma.config.ts is required too: it is where the schema path and datasource
 # URL now live, since schema.prisma no longer reads env("DATABASE_URL").
+# tsconfig.seed.json compiles the catalog sync into dist-seed so it can be run
+# from inside the runtime image. `prisma migrate deploy` in the CMD adds the
+# catalog columns but populates nothing, so a new schedule version reaches
+# production only when the sync is run against it — once, deliberately, after
+# the deploy that carries it.
 COPY prisma ./prisma
-COPY prisma.config.ts tsconfig.json ./
+COPY prisma.config.ts tsconfig.json tsconfig.seed.json ./
 COPY src ./src
 RUN npx prisma generate
 RUN npm run build
@@ -36,6 +41,7 @@ ENV NODE_ENV=production
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/dist-seed ./dist-seed
 COPY package.json ./
 # `prisma migrate deploy` in the CMD below reads the datasource URL from this
 # file, so it has to ship in the runtime image — without it the CLI has no
@@ -44,4 +50,4 @@ COPY prisma.config.ts ./
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist-seed/prisma/seed.js && node dist/main.js"]

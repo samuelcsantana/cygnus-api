@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { App } from '../../../infrastructure/http/build-app';
-import { AgeGroupSchedule } from '../../../application/vaccine/get-baby-vaccine-schedule.use-case';
+import { VaccineSchedule } from '../../../application/vaccine/get-baby-vaccine-schedule.use-case';
 import { GetBabyVaccineScheduleUseCase } from '../../../application/vaccine/get-baby-vaccine-schedule.use-case';
 import { MarkVaccineAsAppliedUseCase } from '../../../application/vaccine/mark-vaccine-as-applied.use-case';
 import { RegisterAdhocVaccineUseCase } from '../../../application/vaccine/register-adhoc-vaccine.use-case';
@@ -9,6 +9,7 @@ import { DeleteAdhocVaccineRecordUseCase } from '../../../application/vaccine/de
 import { BabyNotFoundError } from '../../../application/baby/errors/baby-not-found.error';
 import { VaccineNotFoundError } from '../../../application/vaccine/errors/vaccine-not-found.error';
 import { VaccineRecordNotFoundError } from '../../../application/vaccine/errors/vaccine-record-not-found.error';
+import { RecurringVaccineRequiresAdhocRecordError } from '../../../application/vaccine/errors/recurring-vaccine-requires-adhoc-record.error';
 import { DomainError } from '../../../shared/errors/domain-error';
 import { BabyVaccineRecord } from '../../../domain/vaccine/baby-vaccine-record';
 import { PrismaBabyRepository } from '../../../infrastructure/database/repositories/prisma-baby.repository';
@@ -55,24 +56,29 @@ function toAdhocResponse(record: BabyVaccineRecord) {
   };
 }
 
-function toScheduleResponse(schedule: AgeGroupSchedule[]) {
-  return schedule.map((group) => ({
-    ageInMonths: group.ageInMonths,
-    items: group.items.map((item) => ({
-      vaccineId: item.vaccineId,
-      name: item.name,
-      description: item.description,
-      doseNumber: item.doseNumber,
-      recommendedAgeInMonths: item.recommendedAgeInMonths,
-      status: item.status,
-      applicationDate: toDateOnly(item.applicationDate),
-      notes: item.notes,
-      batchNumber: item.batchNumber,
-      location: item.location,
-      professional: item.professional,
-      photoUrl: item.photoUrl,
+function toScheduleResponse(schedule: VaccineSchedule) {
+  return {
+    metadata: schedule.metadata,
+    groups: schedule.groups.map((group) => ({
+      ageInMonths: group.ageInMonths,
+      items: group.items.map((item) => ({
+        vaccineId: item.vaccineId,
+        name: item.name,
+        description: item.description,
+        guidance: item.guidance,
+        doseNumber: item.doseNumber,
+        recommendedAgeInMonths: item.recommendedAgeInMonths,
+        recommendationKind: item.recommendationKind,
+        status: item.status,
+        applicationDate: toDateOnly(item.applicationDate),
+        notes: item.notes,
+        batchNumber: item.batchNumber,
+        location: item.location,
+        professional: item.professional,
+        photoUrl: item.photoUrl,
+      })),
     })),
-  }));
+  };
 }
 
 export async function vaccineRoutes(app: App) {
@@ -116,8 +122,9 @@ export async function vaccineRoutes(app: App) {
       tags: ['Vaccines'],
       summary: "Get a baby's vaccination schedule",
       description:
-        'Returns the full vaccination calendar for the baby, grouped by recommended age in months, with each ' +
-        'vaccine marked as PENDING, DELAYED (past its due date) or APPLIED.',
+        'Returns the active official vaccination calendar source and version, grouped by recommended age. ' +
+        'Routine entries can be PENDING, DELAYED or APPLIED. Conditional and recurring guidance is never ' +
+        'automatically labelled overdue.',
       params: vaccineScheduleParamsSchema,
       response: {
         200: vaccineScheduleResponseSchema,
@@ -156,6 +163,7 @@ export async function vaccineRoutes(app: App) {
       body: markVaccineAppliedBodySchema,
       response: {
         200: vaccineScheduleItemSchema,
+        400: authErrorResponseSchema,
         401: authErrorResponseSchema,
         404: authErrorResponseSchema,
         500: authErrorResponseSchema,
@@ -191,8 +199,10 @@ export async function vaccineRoutes(app: App) {
           vaccineId: request.params.vaccineId,
           name: vaccine?.name ?? '',
           description: vaccine?.description ?? '',
+          guidance: vaccine?.guidance ?? null,
           doseNumber: vaccine?.doseNumber ?? 0,
           recommendedAgeInMonths: vaccine?.recommendedAgeInMonths ?? 0,
+          recommendationKind: vaccine?.recommendationKind ?? 'ROUTINE',
           status: record.status,
           applicationDate: toDateOnly(record.applicationDate),
           notes: record.notes,
@@ -204,6 +214,10 @@ export async function vaccineRoutes(app: App) {
       } catch (error) {
         if (error instanceof BabyNotFoundError || error instanceof VaccineNotFoundError) {
           return reply.status(404).send({ status: 'error', message: error.message });
+        }
+
+        if (error instanceof RecurringVaccineRequiresAdhocRecordError) {
+          return reply.status(400).send({ status: 'error', message: error.message });
         }
 
         throw error;

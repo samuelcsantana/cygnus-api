@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist-seed"
+  },
+  "include": [
+    "prisma/seed.ts",
+    "prisma/sync-vaccine-catalog.ts",
+    "prisma/vaccine-catalog-seed-data.ts",
+    "src/shared/config/vaccine-catalog.ts"
+  ],
+  "exclude": ["node_modules", "dist", "dist-seed", "tests"]
+}
