@@ -24,6 +24,7 @@ model User {
   babies                     Baby[]
   notifications              Notification[]
   babyGuardianships          BabyGuardian[]
+  legalAcceptances           LegalAcceptance[]
 
   @@map("users")
 }
@@ -239,4 +240,29 @@ model AuditLog {
   @@index([babyId])
   @@index([userId])
   @@map("audit_logs")
+}
+
+/// One row per (user, document, version) they have accepted.
+///
+/// Versioned rather than a boolean, because consent to a text that has since changed is not
+/// consent to the current one: raising a document's version is what makes everyone accept again,
+/// and what makes the record auditable instead of a flag nobody can date.
+///
+/// documentId is a String, not an enum, and that is deliberate. The wire values are fixed by the
+/// frontend's document registry and are lowercase ('privacy', 'terms'); the route's Zod schema is
+/// what constrains them, and it is the same schema the OpenAPI document is generated from, so the
+/// contract still states exactly which two values are legal. A database enum would only add a
+/// case-translation layer whose whole job is to undo itself.
+model LegalAcceptance {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  documentId String   @map("document_id")
+  version    String
+  acceptedAt DateTime @default(now()) @map("accepted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId, version])
+  @@index([userId])
+  @@map("legal_acceptances")
 }

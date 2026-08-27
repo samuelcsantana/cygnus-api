@@ -30,6 +30,7 @@ import { inviteRoutes } from '../../presentation/http/routes/invite.routes';
 import { notificationRoutes } from '../../presentation/http/routes/notification.routes';
 import { specialtyRoutes } from '../../presentation/http/routes/specialty.routes';
 import { uploadRoutes } from '../../presentation/http/routes/upload.routes';
+import { legalRoutes } from '../../presentation/http/routes/legal.routes';
 
 export async function buildApp() {
   const app = fastify({
@@ -131,6 +132,7 @@ export async function buildApp() {
         { name: 'Guardians', description: 'Sharing a baby profile between multiple adults via invite codes' },
         { name: 'Notifications', description: 'In-app alerts for delayed vaccines and upcoming appointments' },
         { name: 'Uploads', description: 'File uploads (milestone photos)' },
+        { name: 'Legal', description: 'Which version of the privacy policy and terms a user has accepted' },
       ],
     },
     transform: jsonSchemaTransform,
@@ -154,6 +156,7 @@ export async function buildApp() {
   await app.register(notificationRoutes);
   await app.register(specialtyRoutes);
   await app.register(uploadRoutes);
+  await app.register(legalRoutes);
 
   return app;
 }
