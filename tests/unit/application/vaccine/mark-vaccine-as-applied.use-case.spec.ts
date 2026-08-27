@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MarkVaccineAsAppliedUseCase } from '../../../../src/application/vaccine/mark-vaccine-as-applied.use-case';
 import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
 import { VaccineNotFoundError } from '../../../../src/application/vaccine/errors/vaccine-not-found.error';
+import { RecurringVaccineRequiresAdhocRecordError } from '../../../../src/application/vaccine/errors/recurring-vaccine-requires-adhoc-record.error';
 import { BabyVaccineRecord } from '../../../../src/domain/vaccine/baby-vaccine-record';
 import {
   buildBaby,
@@ -117,5 +118,20 @@ describe('MarkVaccineAsAppliedUseCase', () => {
     await expect(
       useCase.execute({ babyId: baby.id, vaccineId: 'missing-vaccine', requestingUserId: 'owner-id' }),
     ).rejects.toThrow(VaccineNotFoundError);
+  });
+
+  it('requires recurring vaccines to be recorded as campaign entries', async () => {
+    const baby = buildBaby({ userId: 'owner-id' });
+    const recurringVaccine = buildVaccine({ recommendationKind: 'RECURRING' });
+    const useCase = new MarkVaccineAsAppliedUseCase(
+      buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) }),
+      buildBabyGuardianRepository(),
+      buildVaccineRepository({ findById: vi.fn().mockResolvedValue(recurringVaccine) }),
+      buildBabyVaccineRecordRepository(),
+    );
+
+    await expect(
+      useCase.execute({ babyId: baby.id, vaccineId: recurringVaccine.id, requestingUserId: 'owner-id' }),
+    ).rejects.toThrow(RecurringVaccineRequiresAdhocRecordError);
   });
 });
