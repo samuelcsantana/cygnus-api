@@ -92,6 +92,7 @@ export async function appointmentRoutes(app: App) {
           specialty: request.body.specialty,
           location: request.body.location,
           reason: request.body.reason,
+          status: request.body.status,
         });
 
         auditLogger.log({

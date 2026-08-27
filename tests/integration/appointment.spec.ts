@@ -110,6 +110,46 @@ describe('Appointment routes', () => {
       expect(response.statusCode).toBe(400);
     });
 
+    it('records a consultation that already happened, as COMPLETED', async () => {
+      // The past date above is still rejected — for a booking. Saying the visit already happened
+      // is what makes a past date the correct input rather than a mistake.
+      const { cookie, csrfToken } = await registerAndLogin('parent-record-past@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: {
+          scheduledAt: '2020-01-01T10:00:00.000Z',
+          doctorName: 'Dr. Ana Souza',
+          specialty: 'Pediatria',
+          status: 'COMPLETED',
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toMatchObject({ status: 'COMPLETED', specialty: 'Pediatria' });
+    });
+
+    it('rejects recording a consultation dated in the future', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-record-future@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: {
+          scheduledAt: '2099-01-01T10:00:00.000Z',
+          doctorName: 'Dr. Ana Souza',
+          status: 'COMPLETED',
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
     it("rejects scheduling for another user's baby", async () => {
       const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('appt-owner@example.com');
       const { cookie: intruderCookie, csrfToken: intruderCsrfToken } = await registerAndLogin('appt-intruder@example.com');

@@ -4141,7 +4141,7 @@
                   "scheduledAt": {
                     "type": "string",
                     "format": "date-time",
-                    "description": "ISO-8601 date and time of the appointment. Cannot be in the past"
+                    "description": "ISO-8601 date and time of the appointment. Must be in the future unless status is COMPLETED"
                   },
                   "doctorName": {
                     "type": "string",
@@ -4157,6 +4157,14 @@
                   "reason": {
                     "type": "string",
                     "description": "Reason for the visit, e.g. routine check-up"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "SCHEDULED",
+                      "COMPLETED"
+                    ],
+                    "description": "SCHEDULED (default) books an upcoming appointment and rejects a past date. COMPLETED records a consultation that already happened and rejects a future one."
                   }
                 },
                 "required": [

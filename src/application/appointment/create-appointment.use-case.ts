@@ -14,6 +14,11 @@ export interface CreateAppointmentInput {
   location?: string | null;
   reason?: string | null;
   referenceDate?: Date;
+  /**
+   * COMPLETED enters a consultation that already happened, and requires a date in the past.
+   * SCHEDULED (the default) is the original behaviour and requires one in the future.
+   */
+  status?: 'SCHEDULED' | 'COMPLETED';
 }
 
 export class CreateAppointmentUseCase {
@@ -26,7 +31,9 @@ export class CreateAppointmentUseCase {
   async execute(input: CreateAppointmentInput): Promise<Appointment> {
     await ensureBabyAccess(this.babyRepository, this.babyGuardianRepository, input.babyId, input.requestingUserId);
 
-    const appointment = Appointment.schedule({
+    const create = input.status === 'COMPLETED' ? Appointment.record : Appointment.schedule;
+
+    const appointment = create({
       id: randomUUID(),
       babyId: input.babyId,
       scheduledAt: input.scheduledAt,
