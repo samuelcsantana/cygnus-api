@@ -9,4 +9,5 @@ export interface AppointmentRepository {
    */
   findAllByBabyId(babyId: string, search?: string): Promise<Appointment[]>;
   save(appointment: Appointment): Promise<void>;
+  delete(id: string): Promise<void>;
 }

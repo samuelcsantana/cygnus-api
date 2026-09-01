@@ -1,9 +1,12 @@
+import { z } from 'zod';
+
 import type { App } from '../../../infrastructure/http/build-app';
 import { Appointment } from '../../../domain/appointment/appointment';
 import { CreateAppointmentUseCase } from '../../../application/appointment/create-appointment.use-case';
 import { ListBabyAppointmentsUseCase } from '../../../application/appointment/list-baby-appointments.use-case';
 import { GetAppointmentByIdUseCase } from '../../../application/appointment/get-appointment-by-id.use-case';
 import { UpdateAppointmentUseCase } from '../../../application/appointment/update-appointment.use-case';
+import { DeleteAppointmentUseCase } from '../../../application/appointment/delete-appointment.use-case';
 import { AppointmentNotFoundError } from '../../../application/appointment/errors/appointment-not-found.error';
 import { BabyNotFoundError } from '../../../application/baby/errors/baby-not-found.error';
 import { DomainError } from '../../../shared/errors/domain-error';
@@ -54,6 +57,11 @@ export async function appointmentRoutes(app: App) {
     appointmentRepository,
   );
   const getAppointmentByIdUseCase = new GetAppointmentByIdUseCase(
+    babyRepository,
+    babyGuardianRepository,
+    appointmentRepository,
+  );
+  const deleteAppointmentUseCase = new DeleteAppointmentUseCase(
     babyRepository,
     babyGuardianRepository,
     appointmentRepository,
@@ -241,6 +249,49 @@ export async function appointmentRoutes(app: App) {
 
         if (error instanceof DomainError) {
           return reply.status(400).send({ status: 'error', message: error.message });
+        }
+
+        throw error;
+      }
+    },
+  });
+  app.route({
+    method: 'DELETE',
+    url: '/babies/:babyId/appointments/:appointmentId',
+    preHandler: authenticate,
+    schema: {
+      tags: ['Appointments'],
+      summary: 'Delete an appointment',
+      description:
+        'Removes the appointment for good. Distinct from cancelling, which is PATCH status=CANCELLED and keeps the row because a called-off visit is part of the history. Deleting is for a record that should not exist — usually one entered by mistake. No status is exempt: a typo in a completed visit is as wrong as one in a scheduled visit.',
+      params: appointmentIdParamsSchema,
+      response: {
+        204: z.null().describe('Appointment deleted successfully'),
+        401: authErrorResponseSchema,
+        404: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        await deleteAppointmentUseCase.execute({
+          babyId: request.params.babyId,
+          appointmentId: request.params.appointmentId,
+          requestingUserId: request.userId,
+        });
+
+        auditLogger.log({
+          userId: request.userId,
+          action: 'appointment.delete',
+          resourceType: 'Appointment',
+          resourceId: request.params.appointmentId,
+          babyId: request.params.babyId,
+        });
+
+        return reply.status(204).send(null);
+      } catch (error) {
+        if (error instanceof BabyNotFoundError || error instanceof AppointmentNotFoundError) {
+          return reply.status(404).send({ status: 'error', message: error.message });
         }
 
         throw error;
