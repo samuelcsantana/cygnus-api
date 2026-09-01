@@ -343,6 +343,90 @@ describe('Appointment routes', () => {
     });
   });
 
+
+  describe('DELETE /babies/:babyId/appointments/:appointmentId', () => {
+    it('deletes the appointment and stops serving it', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-delete-appointment@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: {
+          scheduledAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          doctorName: 'Dra. Ana Silva',
+        },
+      });
+      const appointmentId = createResponse.json().id;
+
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/appointments/${appointmentId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(deleteResponse.statusCode).toBe(204);
+
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/appointments/${appointmentId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(getResponse.statusCode).toBe(404);
+    });
+
+    it('deletes one that already happened, which cancelling could never fix', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-delete-past@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: {
+          scheduledAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          doctorName: 'Dra. Ana Silva',
+          status: 'COMPLETED',
+        },
+      });
+      const appointmentId = createResponse.json().id;
+
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/appointments/${appointmentId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(deleteResponse.statusCode).toBe(204);
+    });
+
+    it('answers 404 for an appointment belonging to another family', async () => {
+      const owner = await registerAndLogin('parent-owner-delete@example.com');
+      const ownerBabyId = await createBaby(owner.cookie, owner.csrfToken);
+      const created = await app.inject({
+        method: 'POST',
+        url: `/babies/${ownerBabyId}/appointments`,
+        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
+        payload: {
+          scheduledAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          doctorName: 'Dra. Ana Silva',
+        },
+      });
+      const appointmentId = created.json().id;
+
+      const intruder = await registerAndLogin('parent-intruder-delete@example.com');
+      const intruderBabyId = await createBaby(intruder.cookie, intruder.csrfToken);
+
+      // Reaching it through a baby the intruder *does* own: knowing the id must
+      // not be enough.
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${intruderBabyId}/appointments/${appointmentId}`,
+        headers: { cookie: intruder.cookie, 'x-csrf-token': intruder.csrfToken },
+      });
+      expect(response.statusCode).toBe(404);
+    });
+  });
+
   it('exposes all appointment routes in the generated OpenAPI document', async () => {
     const response = await app.inject({ method: 'GET', url: '/docs/json' });
     const openApiDocument = response.json();
@@ -351,6 +435,9 @@ describe('Appointment routes', () => {
     expect(openApiDocument.paths['/babies/{babyId}/appointments'].get.tags).toContain('Appointments');
     expect(openApiDocument.paths['/babies/{babyId}/appointments/{appointmentId}'].get.tags).toContain('Appointments');
     expect(openApiDocument.paths['/babies/{babyId}/appointments/{appointmentId}'].patch.tags).toContain(
+      'Appointments',
+    );
+    expect(openApiDocument.paths['/babies/{babyId}/appointments/{appointmentId}'].delete.tags).toContain(
       'Appointments',
     );
   });

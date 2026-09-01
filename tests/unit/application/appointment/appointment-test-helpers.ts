@@ -23,6 +23,7 @@ export function buildBabyRepository(overrides: Partial<BabyRepository> = {}): Ba
     findAllByUserId: vi.fn().mockResolvedValue([]),
     findAll: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -69,6 +70,7 @@ export function buildAppointmentRepository(overrides: Partial<AppointmentReposit
     findById: vi.fn().mockResolvedValue(null),
     findAllByBabyId: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
