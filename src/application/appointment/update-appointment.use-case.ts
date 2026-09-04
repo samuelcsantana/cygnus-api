@@ -17,6 +17,7 @@ export interface UpdateAppointmentInput {
   reason?: string | null;
   notes?: string | null;
   status?: 'COMPLETED' | 'CANCELLED';
+  specialistId?: string | null;
   weightGrams?: number | null;
   heightMillimeters?: number | null;
   referenceDate?: Date;
@@ -72,6 +73,7 @@ export class UpdateAppointmentUseCase {
       reason: input.reason !== undefined ? input.reason : existingAppointment.reason,
       notes: input.notes !== undefined ? input.notes : existingAppointment.notes,
       status,
+      specialistId: input.specialistId !== undefined ? input.specialistId : existingAppointment.specialistId,
       weightGrams,
       heightMillimeters,
       createdAt: existingAppointment.createdAt,

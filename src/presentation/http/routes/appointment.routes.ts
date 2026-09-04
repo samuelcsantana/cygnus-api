@@ -38,6 +38,7 @@ function toResponse(appointment: Appointment) {
     reason: appointment.reason,
     notes: appointment.notes,
     status: appointment.status,
+    specialistId: appointment.specialistId,
     weightGrams: appointment.weightGrams,
     heightMillimeters: appointment.heightMillimeters,
     createdAt: appointment.createdAt.toISOString(),
@@ -104,6 +105,7 @@ export async function appointmentRoutes(app: App) {
           reason: request.body.reason,
           weightGrams: request.body.weightGrams,
           heightMillimeters: request.body.heightMillimeters,
+          specialistId: request.body.specialistId,
           status: request.body.status,
         });
 
@@ -236,6 +238,7 @@ export async function appointmentRoutes(app: App) {
           notes: request.body.notes,
           weightGrams: request.body.weightGrams,
           heightMillimeters: request.body.heightMillimeters,
+          specialistId: request.body.specialistId,
           status: request.body.status,
         });
 

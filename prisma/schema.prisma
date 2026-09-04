@@ -61,6 +61,7 @@ model Baby {
   notifications    Notification[]
   guardians        BabyGuardian[]
   invites          BabyInvite[]
+  specialists      Specialist[]
 
   @@index([userId])
   @@map("babies")
@@ -167,6 +168,27 @@ enum AppointmentStatus {
   CANCELLED
 }
 
+// The people who look after a child: the paediatrician, the physio, the speech therapist. Kept per
+// baby rather than per account because access in this schema is decided baby by baby — a
+// `BabyGuardian` row is what grants a read, and there is no concept of a family. A specialist
+// hanging off the account would be invisible to the other guardian, which would take back the
+// sharing that already works.
+model Specialist {
+  id           String        @id @default(uuid())
+  babyId       String        @map("baby_id")
+  baby         Baby          @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  name         String
+  specialty    String?
+  // The number somebody looks for at 3am, which is the whole reason this table exists: an
+  // appointment's `doctorName` is free text and has nowhere to hang a phone number.
+  phone        String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  appointments Appointment[]
+
+  @@index([babyId])
+  @@map("specialists")
+}
+
 model Appointment {
   id                String            @id @default(uuid())
   babyId            String            @map("baby_id")
@@ -178,6 +200,12 @@ model Appointment {
   reason            String?
   notes             String?
   status            AppointmentStatus @default(SCHEDULED)
+  // Optional, and beside `doctorName` rather than replacing it. `SetNull` is load-bearing: tidying
+  // up the address book must never rewrite a visit that happened, and the name typed on the day
+  // stays even when the specialist row is gone. A health record does not lose information because
+  // somebody cleaned a list.
+  specialistId      String?           @map("specialist_id")
+  specialist        Specialist?       @relation(fields: [specialistId], references: [id], onDelete: SetNull)
   // Integers in the smallest unit the instrument reads, not decimals: these are the raw material
   // of a growth curve, so they get summed, averaged and interpolated. A float that survives a
   // round trip through JSON and JS arithmetic prints 15.799999999999999 sooner or later, and the
@@ -187,6 +215,7 @@ model Appointment {
   createdAt         DateTime          @default(now()) @map("created_at")
 
   @@index([babyId])
+  @@index([specialistId])
   @@map("appointments")
 }
 

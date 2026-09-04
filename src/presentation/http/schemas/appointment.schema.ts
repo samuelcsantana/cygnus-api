@@ -45,6 +45,11 @@ export const createAppointmentBodySchema = z.object({
   reason: z.string().optional().describe('Reason for the visit, e.g. routine check-up'),
   weightGrams: weightGramsSchema.optional(),
   heightMillimeters: heightMillimetersSchema.optional(),
+  specialistId: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Links this visit to a saved specialist. `doctorName` is still required and stays as typed'),
   status: z
     .enum(['SCHEDULED', 'COMPLETED'])
     .optional()
@@ -64,6 +69,7 @@ export const updateAppointmentBodySchema = z
     notes: z.string().nullable().optional().describe('Notes added after the visit, e.g. reactions, recommendations'),
     weightGrams: weightGramsSchema.nullable().optional(),
     heightMillimeters: heightMillimetersSchema.nullable().optional(),
+    specialistId: z.string().uuid().nullable().optional(),
     status: z.enum(['COMPLETED', 'CANCELLED']).optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: 'At least one field must be provided' });
@@ -79,6 +85,7 @@ export const appointmentResponseSchema = z
     reason: z.string().nullable(),
     notes: z.string().nullable(),
     status: statusSchema,
+    specialistId: z.string().uuid().nullable(),
     weightGrams: z.number().int().nullable(),
     heightMillimeters: z.number().int().nullable(),
     createdAt: z.string().datetime(),
