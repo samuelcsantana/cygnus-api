@@ -1929,6 +1929,11 @@
                                     "CANCELLED"
                                   ]
                                 },
+                                "specialistId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "nullable": true
+                                },
                                 "weightGrams": {
                                   "type": "integer",
                                   "nullable": true
@@ -1952,6 +1957,7 @@
                                 "reason",
                                 "notes",
                                 "status",
+                                "specialistId",
                                 "weightGrams",
                                 "heightMillimeters",
                                 "createdAt"
@@ -4250,6 +4256,11 @@
                     "maximum": 2500,
                     "description": "Height at the visit, in millimetres (10 cm to 250 cm)"
                   },
+                  "specialistId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Links this visit to a saved specialist. `doctorName` is still required and stays as typed"
+                  },
                   "status": {
                     "type": "string",
                     "enum": [
@@ -4326,6 +4337,11 @@
                         "CANCELLED"
                       ]
                     },
+                    "specialistId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
                     "weightGrams": {
                       "type": "integer",
                       "nullable": true
@@ -4349,6 +4365,7 @@
                     "reason",
                     "notes",
                     "status",
+                    "specialistId",
                     "weightGrams",
                     "heightMillimeters",
                     "createdAt"
@@ -4545,6 +4562,11 @@
                           "CANCELLED"
                         ]
                       },
+                      "specialistId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                      },
                       "weightGrams": {
                         "type": "integer",
                         "nullable": true
@@ -4568,6 +4590,7 @@
                       "reason",
                       "notes",
                       "status",
+                      "specialistId",
                       "weightGrams",
                       "heightMillimeters",
                       "createdAt"
@@ -4736,6 +4759,11 @@
                         "CANCELLED"
                       ]
                     },
+                    "specialistId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
                     "weightGrams": {
                       "type": "integer",
                       "nullable": true
@@ -4759,6 +4787,7 @@
                     "reason",
                     "notes",
                     "status",
+                    "specialistId",
                     "weightGrams",
                     "heightMillimeters",
                     "createdAt"
@@ -4904,6 +4933,11 @@
                     "description": "Height at the visit, in millimetres (10 cm to 250 cm)",
                     "nullable": true
                   },
+                  "specialistId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true
+                  },
                   "status": {
                     "type": "string",
                     "enum": [
@@ -4984,6 +5018,11 @@
                         "CANCELLED"
                       ]
                     },
+                    "specialistId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
                     "weightGrams": {
                       "type": "integer",
                       "nullable": true
@@ -5007,6 +5046,7 @@
                     "reason",
                     "notes",
                     "status",
+                    "specialistId",
                     "weightGrams",
                     "heightMillimeters",
                     "createdAt"
@@ -5164,6 +5204,691 @@
                   ],
                   "nullable": true,
                   "description": "Appointment deleted successfully"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/babies/{babyId}/specialists": {
+      "post": {
+        "summary": "Save a professional who looks after this baby",
+        "tags": [
+          "Specialists"
+        ],
+        "description": "Specialists belong to the baby, not to the account, so whoever has guardian access to the baby sees them. Saving one never changes an appointment: `doctorName` stays as it was typed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The professional as the family refers to them, e.g. Dra. Fernanda Lima"
+                  },
+                  "specialty": {
+                    "type": "string",
+                    "description": "What they do, e.g. Pediatria. Free text, see GET /specialties"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "How to reach them. Stored as typed"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "babyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A professional who looks after this baby",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "babyId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "specialty": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "babyId",
+                    "name",
+                    "specialty",
+                    "phone",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false,
+                  "description": "A professional who looks after this baby"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List the professionals who look after a baby",
+        "tags": [
+          "Specialists"
+        ],
+        "description": "Ordered by name, which is the order an address book is read in.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "babyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "babyId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "specialty": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "phone": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "babyId",
+                      "name",
+                      "specialty",
+                      "phone",
+                      "createdAt"
+                    ],
+                    "additionalProperties": false,
+                    "description": "A professional who looks after this baby"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/babies/{babyId}/specialists/{specialistId}": {
+      "patch": {
+        "summary": "Update a professional",
+        "tags": [
+          "Specialists"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "specialty": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "phone": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "babyId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "specialistId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A professional who looks after this baby",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "babyId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "specialty": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "babyId",
+                    "name",
+                    "specialty",
+                    "phone",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false,
+                  "description": "A professional who looks after this baby"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a professional from the list",
+        "tags": [
+          "Specialists"
+        ],
+        "description": "Edits the address book and nothing else. Appointments this professional attended keep their `doctorName` — the name as written on the day — and only lose the `specialistId` link.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "babyId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "specialistId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Specialist removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "enum": [
+                    "null"
+                  ],
+                  "nullable": true,
+                  "description": "Specialist removed successfully"
                 }
               }
             }

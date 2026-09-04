@@ -15,6 +15,7 @@ export interface AppointmentProps {
   reason: string | null;
   notes: string | null;
   status: AppointmentStatus;
+  specialistId: string | null;
   weightGrams: number | null;
   heightMillimeters: number | null;
   createdAt: Date;
@@ -28,6 +29,7 @@ export interface ScheduleAppointmentProps {
   specialty?: string | null;
   location?: string | null;
   reason?: string | null;
+  specialistId?: string | null;
   weightGrams?: number | null;
   heightMillimeters?: number | null;
   createdAt?: Date;
@@ -44,6 +46,13 @@ export class Appointment {
   readonly reason: string | null;
   readonly notes: string | null;
   readonly status: AppointmentStatus;
+  /**
+   * Optional link to the saved professional, **beside** `doctorName` and never instead of it.
+   *
+   * The name stays as it was typed on the day, so deleting a specialist cannot rewrite a visit
+   * that happened — the schema nulls this column and leaves the name alone.
+   */
+  readonly specialistId: string | null;
   readonly weightGrams: number | null;
   readonly heightMillimeters: number | null;
   readonly createdAt: Date;
@@ -58,6 +67,7 @@ export class Appointment {
     this.reason = props.reason;
     this.notes = props.notes;
     this.status = props.status;
+    this.specialistId = props.specialistId;
     this.weightGrams = props.weightGrams;
     this.heightMillimeters = props.heightMillimeters;
     this.createdAt = props.createdAt;
@@ -126,6 +136,7 @@ export class Appointment {
       reason: props.reason ?? null,
       notes: null,
       status: 'SCHEDULED',
+      specialistId: props.specialistId ?? null,
       weightGrams: null,
       heightMillimeters: null,
       createdAt: props.createdAt ?? new Date(),
@@ -159,6 +170,7 @@ export class Appointment {
       reason: props.reason ?? null,
       notes: null,
       status: 'COMPLETED',
+      specialistId: props.specialistId ?? null,
       weightGrams: props.weightGrams ?? null,
       heightMillimeters: props.heightMillimeters ?? null,
       createdAt: props.createdAt ?? new Date(),

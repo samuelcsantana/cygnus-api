@@ -162,6 +162,7 @@ export async function userRoutes(app: App) {
               reason: appointment.reason,
               notes: appointment.notes,
               status: appointment.status,
+              specialistId: appointment.specialistId,
               weightGrams: appointment.weightGrams,
               heightMillimeters: appointment.heightMillimeters,
               createdAt: appointment.createdAt.toISOString(),

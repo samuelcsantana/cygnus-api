@@ -29,6 +29,7 @@ import { milestoneRoutes } from '../../presentation/http/routes/milestone.routes
 import { inviteRoutes } from '../../presentation/http/routes/invite.routes';
 import { notificationRoutes } from '../../presentation/http/routes/notification.routes';
 import { specialtyRoutes } from '../../presentation/http/routes/specialty.routes';
+import { specialistRoutes } from '../../presentation/http/routes/specialist.routes';
 import { uploadRoutes } from '../../presentation/http/routes/upload.routes';
 import { legalRoutes } from '../../presentation/http/routes/legal.routes';
 
@@ -151,6 +152,7 @@ export async function buildApp() {
   await app.register(babyRoutes);
   await app.register(vaccineRoutes);
   await app.register(appointmentRoutes);
+  await app.register(specialistRoutes);
   await app.register(milestoneRoutes);
   await app.register(inviteRoutes);
   await app.register(notificationRoutes);

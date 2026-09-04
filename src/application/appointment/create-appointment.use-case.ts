@@ -13,6 +13,7 @@ export interface CreateAppointmentInput {
   specialty?: string | null;
   location?: string | null;
   reason?: string | null;
+  specialistId?: string | null;
   weightGrams?: number | null;
   heightMillimeters?: number | null;
   referenceDate?: Date;
@@ -43,6 +44,7 @@ export class CreateAppointmentUseCase {
       specialty: input.specialty,
       location: input.location,
       reason: input.reason,
+      specialistId: input.specialistId,
       weightGrams: input.weightGrams,
       heightMillimeters: input.heightMillimeters,
       referenceDate: input.referenceDate,
