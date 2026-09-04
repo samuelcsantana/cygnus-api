@@ -62,6 +62,7 @@ model Baby {
   guardians        BabyGuardian[]
   invites          BabyInvite[]
   specialists      Specialist[]
+  medications      Medication[]
 
   @@index([userId])
   @@map("babies")
@@ -187,6 +188,34 @@ model Specialist {
 
   @@index([babyId])
   @@map("specialists")
+}
+
+// What a child was prescribed, and when — a record, never an instruction.
+//
+// Everything else in this app registers the past: a vaccine was applied, a milestone was reached.
+// A medication is the first thing here that describes something ongoing, which is exactly why the
+// shape stays descriptive: `startedOn`/`endedOn` say what a prescription covered, and nothing in
+// the model expresses "take this now". Dose and frequency are free text because the units are not
+// enumerable in any useful way — drops, ml, mg, half a tablet — and a field that refuses what the
+// prescription actually says is worse than one that stores it verbatim.
+model Medication {
+  id             String    @id @default(uuid())
+  babyId         String    @map("baby_id")
+  baby           Baby      @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  name           String
+  dosage         String?
+  frequency      String?
+  reason         String?
+  prescriberName String?   @map("prescriber_name")
+  startedOn      DateTime  @map("started_on") @db.Date
+  // Null means the course has no recorded end — still being taken, as far as this record knows.
+  // "As far as this record knows" is the whole claim: nothing here watches a clock.
+  endedOn        DateTime? @map("ended_on") @db.Date
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([babyId])
+  @@map("medications")
 }
 
 model Appointment {
