@@ -10,6 +10,8 @@ interface BabyRecord {
   gender: string;
   bloodType: string | null;
   allergies: string[];
+  healthPlanName: string | null;
+  healthPlanNumber: string | null;
   avatarUrl: string | null;
   avatarColor: string | null;
   createdAt: Date;
@@ -24,6 +26,8 @@ function toDomain(record: BabyRecord): Baby {
     gender: record.gender as BabyGender,
     bloodType: record.bloodType,
     allergies: record.allergies,
+    healthPlanName: record.healthPlanName,
+    healthPlanNumber: record.healthPlanNumber,
     avatarUrl: record.avatarUrl,
     avatarColor: record.avatarColor,
     createdAt: record.createdAt,
@@ -59,6 +63,8 @@ export class PrismaBabyRepository implements BabyRepository {
         gender: baby.gender,
         bloodType: baby.bloodType,
         allergies: baby.allergies,
+        healthPlanName: baby.healthPlanName,
+        healthPlanNumber: baby.healthPlanNumber,
         avatarUrl: baby.avatarUrl,
         avatarColor: baby.avatarColor,
         createdAt: baby.createdAt,
@@ -69,6 +75,8 @@ export class PrismaBabyRepository implements BabyRepository {
         gender: baby.gender,
         bloodType: baby.bloodType,
         allergies: baby.allergies,
+        healthPlanName: baby.healthPlanName,
+        healthPlanNumber: baby.healthPlanNumber,
         avatarUrl: baby.avatarUrl,
         avatarColor: baby.avatarColor,
       },

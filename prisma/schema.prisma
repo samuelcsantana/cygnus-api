@@ -8,23 +8,23 @@ datasource db {
 }
 
 model User {
-  id                         String         @id @default(uuid())
-  email                      String         @unique
-  passwordHash               String         @map("password_hash")
-  name                       String
-  emailNotificationsEnabled  Boolean        @default(true) @map("email_notifications_enabled")
-  createdAt                  DateTime       @default(now()) @map("created_at")
+  id                        String            @id @default(uuid())
+  email                     String            @unique
+  passwordHash              String            @map("password_hash")
+  name                      String
+  emailNotificationsEnabled Boolean           @default(true) @map("email_notifications_enabled")
+  createdAt                 DateTime          @default(now()) @map("created_at")
   // How "log every other device out" is expressed: refresh tokens carry the version they were
   // minted under, and a password reset increments this, so every token issued before it stops
   // matching. A counter rather than a timestamp because `iat` only has second resolution — a
   // time-based cutoff would keep alive exactly the tokens issued in the same second as the reset.
   // Starts at 0 so tokens already in the wild, which carry no version claim at all, keep working.
   // Lives in Postgres, not Redis: a Key Value flush must never un-invalidate a session.
-  sessionVersion             Int            @default(0) @map("session_version")
-  babies                     Baby[]
-  notifications              Notification[]
-  babyGuardianships          BabyGuardian[]
-  legalAcceptances           LegalAcceptance[]
+  sessionVersion            Int               @default(0) @map("session_version")
+  babies                    Baby[]
+  notifications             Notification[]
+  babyGuardianships         BabyGuardian[]
+  legalAcceptances          LegalAcceptance[]
 
   @@map("users")
 }
@@ -40,23 +40,27 @@ enum GuardianRole {
 }
 
 model Baby {
-  id             String              @id @default(uuid())
-  userId         String              @map("user_id")
-  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name           String
-  birthDate      DateTime            @map("birth_date") @db.Date
-  gender         Gender
-  bloodType      String?             @map("blood_type")
-  allergies      String[]            @default([])
-  avatarUrl      String?             @map("avatar_url")
-  avatarColor    String?             @map("avatar_color")
-  createdAt      DateTime            @default(now()) @map("created_at")
-  vaccineRecords BabyVaccineRecord[]
-  appointments   Appointment[]
-  milestones     Milestone[]
-  notifications  Notification[]
-  guardians      BabyGuardian[]
-  invites        BabyInvite[]
+  id               String              @id @default(uuid())
+  userId           String              @map("user_id")
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  birthDate        DateTime            @map("birth_date") @db.Date
+  gender           Gender
+  bloodType        String?             @map("blood_type")
+  allergies        String[]            @default([])
+  // Stored as a pair because the plan's name alone is not what a clinic desk asks for — it asks
+  // for the member number. One without the other still sends the parent digging for the card.
+  healthPlanName   String?             @map("health_plan_name")
+  healthPlanNumber String?             @map("health_plan_number")
+  avatarUrl        String?             @map("avatar_url")
+  avatarColor      String?             @map("avatar_color")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  vaccineRecords   BabyVaccineRecord[]
+  appointments     Appointment[]
+  milestones       Milestone[]
+  notifications    Notification[]
+  guardians        BabyGuardian[]
+  invites          BabyInvite[]
 
   @@index([userId])
   @@map("babies")

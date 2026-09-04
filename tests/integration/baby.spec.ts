@@ -207,6 +207,39 @@ describe('Baby routes', () => {
       expect(body.birthDate).toBe('2022-11-20');
     });
 
+    it('stores the health plan on creation and clears just the member number', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-health-plan@example.com');
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/babies',
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: {
+          name: 'Elis',
+          birthDate: '2023-04-02',
+          gender: 'FEMALE',
+          healthPlanName: 'Unimed',
+          healthPlanNumber: '0123 4567 8901 2345',
+        },
+      });
+
+      expect(createResponse.statusCode).toBe(201);
+      expect(createResponse.json().healthPlanName).toBe('Unimed');
+      expect(createResponse.json().healthPlanNumber).toBe('0123 4567 8901 2345');
+      const babyId = createResponse.json().id;
+
+      const updateResponse = await app.inject({
+        method: 'PATCH',
+        url: `/babies/${babyId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { healthPlanNumber: null },
+      });
+
+      expect(updateResponse.statusCode).toBe(200);
+      expect(updateResponse.json().healthPlanNumber).toBeNull();
+      expect(updateResponse.json().healthPlanName).toBe('Unimed');
+    });
+
     it('updates the avatarColor independently of the avatarUrl', async () => {
       const { cookie, csrfToken } = await registerAndLogin('parent-update-avatar-color@example.com');
 
