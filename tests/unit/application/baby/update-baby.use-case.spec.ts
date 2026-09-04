@@ -31,6 +31,29 @@ describe('UpdateBabyUseCase', () => {
     expect(babyRepository.save).not.toHaveBeenCalled();
   });
 
+  // `null` and `undefined` mean opposite things on a nullable field, and only the use case can tell
+  // them apart: the route hands both through untouched. Getting this backwards would silently wipe
+  // the health plan every time a parent edited the child's name.
+  it('clears a nullable field with null and leaves it untouched when the key is absent', async () => {
+    const baby = buildBaby({ healthPlanName: 'Unimed', healthPlanNumber: '0123 4567 8901' });
+    const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
+    const useCase = new UpdateBabyUseCase(babyRepository, buildBabyGuardianRepository());
+
+    const renamed = await useCase.execute({ babyId: baby.id, requestingUserId: 'owner-id', name: 'New Name' });
+
+    expect(renamed.healthPlanName).toBe('Unimed');
+    expect(renamed.healthPlanNumber).toBe('0123 4567 8901');
+
+    const cleared = await useCase.execute({
+      babyId: baby.id,
+      requestingUserId: 'owner-id',
+      healthPlanNumber: null,
+    });
+
+    expect(cleared.healthPlanNumber).toBeNull();
+    expect(cleared.healthPlanName).toBe('Unimed');
+  });
+
   it('rejects updating the birth date to a future date', async () => {
     const baby = buildBaby({ userId: 'owner-id' });
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });

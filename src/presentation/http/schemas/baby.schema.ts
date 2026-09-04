@@ -18,6 +18,12 @@ export const createBabyBodySchema = z.object({
   gender: genderSchema,
   bloodType: bloodTypeSchema.optional(),
   allergies: z.array(z.string().min(1)).optional().describe('Known allergies, e.g. lactose, penicillin'),
+  healthPlanName: z.string().min(1).optional().describe('Health insurance plan, e.g. Unimed'),
+  healthPlanNumber: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Member number printed on the insurance card — what a clinic desk asks for'),
   avatarUrl: z.string().url().optional(),
   avatarColor: avatarColorSchema.optional(),
 });
@@ -29,6 +35,8 @@ export const updateBabyBodySchema = z
     gender: genderSchema.optional(),
     bloodType: bloodTypeSchema.nullable().optional(),
     allergies: z.array(z.string().min(1)).optional(),
+    healthPlanName: z.string().min(1).nullable().optional(),
+    healthPlanNumber: z.string().min(1).nullable().optional(),
     avatarUrl: z.string().url().nullable().optional(),
     avatarColor: avatarColorSchema.nullable().optional(),
   })
@@ -43,6 +51,8 @@ export const babyResponseSchema = z
     gender: genderSchema,
     bloodType: z.string().nullable(),
     allergies: z.array(z.string()),
+    healthPlanName: z.string().nullable(),
+    healthPlanNumber: z.string().nullable(),
     avatarUrl: z.string().nullable(),
     avatarColor: z.string().nullable(),
     createdAt: z.string().datetime(),

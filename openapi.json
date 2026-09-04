@@ -1768,6 +1768,14 @@
                                   "type": "string"
                                 }
                               },
+                              "healthPlanName": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "healthPlanNumber": {
+                                "type": "string",
+                                "nullable": true
+                              },
                               "avatarUrl": {
                                 "type": "string",
                                 "nullable": true
@@ -1789,6 +1797,8 @@
                               "gender",
                               "bloodType",
                               "allergies",
+                              "healthPlanName",
+                              "healthPlanNumber",
                               "avatarUrl",
                               "avatarColor",
                               "createdAt"
@@ -2127,6 +2137,16 @@
                     },
                     "description": "Known allergies, e.g. lactose, penicillin"
                   },
+                  "healthPlanName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Health insurance plan, e.g. Unimed"
+                  },
+                  "healthPlanNumber": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Member number printed on the insurance card — what a clinic desk asks for"
+                  },
                   "avatarUrl": {
                     "type": "string",
                     "format": "uri"
@@ -2187,6 +2207,14 @@
                         "type": "string"
                       }
                     },
+                    "healthPlanName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "healthPlanNumber": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "avatarUrl": {
                       "type": "string",
                       "nullable": true
@@ -2208,6 +2236,8 @@
                     "gender",
                     "bloodType",
                     "allergies",
+                    "healthPlanName",
+                    "healthPlanNumber",
                     "avatarUrl",
                     "avatarColor",
                     "createdAt"
@@ -2348,6 +2378,14 @@
                           "type": "string"
                         }
                       },
+                      "healthPlanName": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "healthPlanNumber": {
+                        "type": "string",
+                        "nullable": true
+                      },
                       "avatarUrl": {
                         "type": "string",
                         "nullable": true
@@ -2369,6 +2407,8 @@
                       "gender",
                       "bloodType",
                       "allergies",
+                      "healthPlanName",
+                      "healthPlanNumber",
                       "avatarUrl",
                       "avatarColor",
                       "createdAt"
@@ -2494,6 +2534,14 @@
                         "type": "string"
                       }
                     },
+                    "healthPlanName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "healthPlanNumber": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "avatarUrl": {
                       "type": "string",
                       "nullable": true
@@ -2515,6 +2563,8 @@
                     "gender",
                     "bloodType",
                     "allergies",
+                    "healthPlanName",
+                    "healthPlanNumber",
                     "avatarUrl",
                     "avatarColor",
                     "createdAt"
@@ -2656,6 +2706,16 @@
                       "minLength": 1
                     }
                   },
+                  "healthPlanName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "nullable": true
+                  },
+                  "healthPlanNumber": {
+                    "type": "string",
+                    "minLength": 1,
+                    "nullable": true
+                  },
                   "avatarUrl": {
                     "type": "string",
                     "format": "uri",
@@ -2724,6 +2784,14 @@
                         "type": "string"
                       }
                     },
+                    "healthPlanName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "healthPlanNumber": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "avatarUrl": {
                       "type": "string",
                       "nullable": true
@@ -2745,6 +2813,8 @@
                     "gender",
                     "bloodType",
                     "allergies",
+                    "healthPlanName",
+                    "healthPlanNumber",
                     "avatarUrl",
                     "avatarColor",
                     "createdAt"

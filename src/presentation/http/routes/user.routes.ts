@@ -132,6 +132,8 @@ export async function userRoutes(app: App) {
               gender: baby.gender,
               bloodType: baby.bloodType,
               allergies: baby.allergies,
+              healthPlanName: baby.healthPlanName,
+              healthPlanNumber: baby.healthPlanNumber,
               avatarUrl: baby.avatarUrl,
               avatarColor: baby.avatarColor,
               createdAt: baby.createdAt.toISOString(),

@@ -35,6 +35,8 @@ function toResponse(baby: Baby) {
     gender: baby.gender,
     bloodType: baby.bloodType,
     allergies: baby.allergies,
+    healthPlanName: baby.healthPlanName,
+    healthPlanNumber: baby.healthPlanNumber,
     avatarUrl: baby.avatarUrl,
     avatarColor: baby.avatarColor,
     createdAt: baby.createdAt.toISOString(),
@@ -75,6 +77,8 @@ export async function babyRoutes(app: App) {
           gender: request.body.gender,
           bloodType: request.body.bloodType,
           allergies: request.body.allergies,
+          healthPlanName: request.body.healthPlanName,
+          healthPlanNumber: request.body.healthPlanNumber,
           avatarUrl: request.body.avatarUrl,
           avatarColor: request.body.avatarColor,
         });
@@ -169,6 +173,8 @@ export async function babyRoutes(app: App) {
           gender: request.body.gender,
           bloodType: request.body.bloodType,
           allergies: request.body.allergies,
+          healthPlanName: request.body.healthPlanName,
+          healthPlanNumber: request.body.healthPlanNumber,
           avatarUrl: request.body.avatarUrl,
           avatarColor: request.body.avatarColor,
         });

@@ -10,6 +10,8 @@ export interface CreateBabyInput {
   gender: BabyGender;
   bloodType?: string | null;
   allergies?: string[];
+  healthPlanName?: string | null;
+  healthPlanNumber?: string | null;
   avatarUrl?: string | null;
   avatarColor?: string | null;
 }
@@ -29,6 +31,8 @@ export class CreateBabyUseCase {
       gender: input.gender,
       bloodType: input.bloodType,
       allergies: input.allergies,
+      healthPlanName: input.healthPlanName,
+      healthPlanNumber: input.healthPlanNumber,
       avatarUrl: input.avatarUrl,
       avatarColor: input.avatarColor,
     });
