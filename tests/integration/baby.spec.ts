@@ -207,6 +207,44 @@ describe('Baby routes', () => {
       expect(body.birthDate).toBe('2022-11-20');
     });
 
+    /**
+     * O sexo ao nascer deixou de ser obrigatório. Ele não é lido por nada — nem pelo calendário do
+     * PNI, nem por tela nenhuma — e exigir dado sensível de uma criança sem uso é a coleta que
+     * nenhuma política de privacidade consegue justificar.
+     */
+    it('cria uma criança sem sexo ao nascer', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-no-sex@example.com');
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/babies',
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { name: 'Sem sexo', birthDate: '2024-01-01' },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json().sexAtBirth).toBeNull();
+    });
+
+    /**
+     * A ponte depreciada, e a razão de ela existir: o front que está em produção no momento do
+     * deploy manda e lê `gender`. Sem isto, o primeiro cadastro feito entre os dois deploys perderia
+     * o valor em silêncio, e toda tela que carrega crianças falharia o parse.
+     */
+    it('aceita o `gender` antigo e devolve os dois campos', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-legacy-gender@example.com');
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/babies',
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { name: 'Legado', birthDate: '2024-01-01', gender: 'MALE' },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toMatchObject({ sexAtBirth: 'MALE', gender: 'MALE' });
+    });
+
     it('stores the health plan on creation and clears just the member number', async () => {
       const { cookie, csrfToken } = await registerAndLogin('parent-health-plan@example.com');
 
@@ -238,6 +276,43 @@ describe('Baby routes', () => {
       expect(updateResponse.statusCode).toBe(200);
       expect(updateResponse.json().healthPlanNumber).toBeNull();
       expect(updateResponse.json().healthPlanName).toBe('Unimed');
+    });
+
+    /**
+     * `null` limpa e ausência não mexe — e a diferença importa porque "prefiro não informar" é uma
+     * escolha que a pessoa faz depois de já ter informado. Um `??` no lugar da comparação com
+     * `undefined` transformaria essa escolha em "não mexi", em silêncio.
+     */
+    it('limpa o sexo ao nascer com null, e o preserva quando a chave não vem', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-clear-sex@example.com');
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/babies',
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { name: 'Bia', birthDate: '2022-11-20', sexAtBirth: 'FEMALE' },
+      });
+      const babyId = createResponse.json().id;
+
+      const renameResponse = await app.inject({
+        method: 'PATCH',
+        url: `/babies/${babyId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { name: 'Beatriz' },
+      });
+
+      expect(renameResponse.json().sexAtBirth).toBe('FEMALE');
+
+      const clearResponse = await app.inject({
+        method: 'PATCH',
+        url: `/babies/${babyId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { sexAtBirth: null },
+      });
+
+      expect(clearResponse.statusCode).toBe(200);
+      expect(clearResponse.json().sexAtBirth).toBeNull();
+      expect(clearResponse.json().name).toBe('Beatriz');
     });
 
     it('updates the avatarColor independently of the avatarUrl', async () => {

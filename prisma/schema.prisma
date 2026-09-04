@@ -29,7 +29,14 @@ model User {
   @@map("users")
 }
 
-enum Gender {
+// O nome diz o que o dado é: **sexo ao nascer**, variável clínica, e não identidade de gênero.
+// Eram três vocabulários para a mesma coluna — `gender` no código, "Sexo" na tela, "Menino/Menina"
+// nos rótulos — e nenhum deles dizia isso.
+//
+// Opcional de propósito. O campo era obrigatório no cadastro e **não era lido por nada**: não entra
+// no calendário do PNI, não aparece em tela nenhuma. Exigir dado sensível de uma criança sem uso é
+// exatamente a coleta que a política de privacidade teria de justificar e não consegue.
+enum SexAtBirth {
   MALE
   FEMALE
 }
@@ -45,7 +52,7 @@ model Baby {
   user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   name             String
   birthDate        DateTime            @map("birth_date") @db.Date
-  gender           Gender
+  sexAtBirth       SexAtBirth?         @map("sex_at_birth")
   bloodType        String?             @map("blood_type")
   allergies        String[]            @default([])
   // Stored as a pair because the plan's name alone is not what a clinic desk asks for — it asks
