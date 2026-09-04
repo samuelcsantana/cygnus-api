@@ -34,7 +34,13 @@ describe('Specialist routes', () => {
     return csrfCookie ? csrfCookie.split(';')[0].split('=')[1] : '';
   }
 
-  async function registerAndLogin(email: string): Promise<{ cookie: string; csrfToken: string }> {
+  interface Session {
+    cookie: string;
+    csrfToken: string;
+    userId: string;
+  }
+
+  async function registerAndLogin(email: string): Promise<Session> {
     await app.inject({
       method: 'POST',
       url: '/auth/register',
@@ -47,158 +53,210 @@ describe('Specialist routes', () => {
       payload: { email, password: 'S3cur3-Password' },
     });
 
-    return {
-      cookie: extractCookieHeader(loginResponse.headers['set-cookie']),
-      csrfToken: extractCsrfToken(loginResponse.headers['set-cookie']),
-    };
+    const cookie = extractCookieHeader(loginResponse.headers['set-cookie']);
+    const csrfToken = extractCsrfToken(loginResponse.headers['set-cookie']);
+
+    const me = await app.inject({ method: 'GET', url: '/auth/me', headers: { cookie } });
+
+    return { cookie, csrfToken, userId: me.json().id };
   }
 
-  async function createBaby(cookie: string, csrfToken: string): Promise<string> {
+  async function createBaby(session: Session, name = 'Baby'): Promise<string> {
     const response = await app.inject({
       method: 'POST',
       url: '/babies',
-      headers: { cookie, 'x-csrf-token': csrfToken },
-      payload: { name: 'Baby', birthDate: '2024-01-01', gender: 'FEMALE' },
+      headers: { cookie: session.cookie, 'x-csrf-token': session.csrfToken },
+      payload: { name, birthDate: '2024-01-01' },
     });
 
     return response.json().id;
   }
 
-  async function createSpecialist(
-    cookie: string,
-    csrfToken: string,
-    babyId: string,
-    payload: Record<string, unknown> = {},
-  ): Promise<string> {
-    const response = await app.inject({
+  async function addAsGuardian(owner: Session, babyId: string, guardian: Session): Promise<void> {
+    const inviteResponse = await app.inject({
       method: 'POST',
-      url: `/babies/${babyId}/specialists`,
-      headers: { cookie, 'x-csrf-token': csrfToken },
-      payload: { name: 'Dra. Fernanda Lima', specialty: 'Pediatria', phone: '+55 11 99999-0000', ...payload },
+      url: `/babies/${babyId}/invites`,
+      headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
+      payload: {},
     });
 
-    return response.json().id;
+    await app.inject({
+      method: 'POST',
+      url: `/invites/${inviteResponse.json().code}/redeem`,
+      headers: { cookie: guardian.cookie, 'x-csrf-token': guardian.csrfToken },
+    });
   }
 
-  describe('POST /babies/:babyId/specialists', () => {
-    it('saves a professional with the phone number, which is the point of the table', async () => {
-      const { cookie, csrfToken } = await registerAndLogin('parent-specialist@example.com');
-      const babyId = await createBaby(cookie, csrfToken);
+  async function createSpecialist(session: Session, payload: Record<string, unknown>) {
+    return app.inject({
+      method: 'POST',
+      url: '/specialists',
+      headers: { cookie: session.cookie, 'x-csrf-token': session.csrfToken },
+      payload: { name: 'Dra. Fernanda Lima', ...payload },
+    });
+  }
 
-      const response = await app.inject({
-        method: 'POST',
-        url: `/babies/${babyId}/specialists`,
-        headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { name: '  Dra. Fernanda Lima  ', specialty: 'Pediatria', phone: '+55 11 99999-0000' },
-      });
+  async function listSpecialists(session: Session, query = '') {
+    const response = await app.inject({
+      method: 'GET',
+      url: `/specialists${query}`,
+      headers: { cookie: session.cookie, 'x-csrf-token': session.csrfToken },
+    });
+
+    return response.json().map((specialist: { name: string }) => specialist.name);
+  }
+
+  describe('POST /specialists', () => {
+    it('saves a professional linked to no child at all', async () => {
+      const owner = await registerAndLogin('spec-private@example.com');
+
+      const response = await createSpecialist(owner, { phone: '+55 11 99999-0000' });
 
       expect(response.statusCode).toBe(201);
-      expect(response.json()).toMatchObject({
-        name: 'Dra. Fernanda Lima',
-        specialty: 'Pediatria',
-        phone: '+55 11 99999-0000',
-      });
+      expect(response.json()).toMatchObject({ babyIds: [], sharedWithUserIds: [], babyId: null });
     });
 
-    it("rejects saving a specialist on another user's baby", async () => {
-      const { cookie: ownerCookie, csrfToken: ownerCsrfToken } = await registerAndLogin('spec-owner@example.com');
-      const { cookie: intruderCookie, csrfToken: intruderCsrfToken } =
-        await registerAndLogin('spec-intruder@example.com');
-      const babyId = await createBaby(ownerCookie, ownerCsrfToken);
+    it('links a professional to more than one child', async () => {
+      const owner = await registerAndLogin('spec-two-kids@example.com');
+      const first = await createBaby(owner, 'Ana');
+      const second = await createBaby(owner, 'Bruno');
 
-      const response = await app.inject({
-        method: 'POST',
-        url: `/babies/${babyId}/specialists`,
-        headers: { cookie: intruderCookie, 'x-csrf-token': intruderCsrfToken },
-        payload: { name: 'Dra. Fernanda Lima' },
-      });
+      const response = await createSpecialist(owner, { babyIds: [first, second] });
 
-      expect(response.statusCode).toBe(404);
-    });
-  });
-
-  describe('GET /babies/:babyId/specialists', () => {
-    it('lists by name and never leaks another baby’s list', async () => {
-      const { cookie, csrfToken } = await registerAndLogin('parent-specialist-list@example.com');
-      const firstBabyId = await createBaby(cookie, csrfToken);
-      const secondBabyId = await createBaby(cookie, csrfToken);
-
-      // Without the "Dr."/"Dra." prefixes on purpose: ordering is by the stored string, so a
-      // fixture that carried them would be asserting how Postgres collates a full stop, not that
-      // the list comes back alphabetically.
-      await createSpecialist(cookie, csrfToken, firstBabyId, { name: 'Bruno Alves' });
-      await createSpecialist(cookie, csrfToken, firstBabyId, { name: 'Ana Souza' });
-      await createSpecialist(cookie, csrfToken, secondBabyId, { name: 'Carla Dias' });
-
-      const response = await app.inject({
-        method: 'GET',
-        url: `/babies/${firstBabyId}/specialists`,
-        headers: { cookie, 'x-csrf-token': csrfToken },
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(response.json().map((specialist: { name: string }) => specialist.name)).toEqual([
-        'Ana Souza',
-        'Bruno Alves',
-      ]);
-    });
-  });
-
-  describe('PATCH /babies/:babyId/specialists/:specialistId', () => {
-    it('updates the phone without touching the rest', async () => {
-      const { cookie, csrfToken } = await registerAndLogin('parent-specialist-patch@example.com');
-      const babyId = await createBaby(cookie, csrfToken);
-      const specialistId = await createSpecialist(cookie, csrfToken, babyId);
-
-      const response = await app.inject({
-        method: 'PATCH',
-        url: `/babies/${babyId}/specialists/${specialistId}`,
-        headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { phone: '+55 11 98888-1111' },
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(response.json()).toMatchObject({
-        name: 'Dra. Fernanda Lima',
-        specialty: 'Pediatria',
-        phone: '+55 11 98888-1111',
-      });
+      expect(response.statusCode).toBe(201);
+      expect(response.json().babyIds).toHaveLength(2);
     });
 
-    it('refuses to reach a specialist through a baby it does not belong to', async () => {
-      const { cookie, csrfToken } = await registerAndLogin('parent-specialist-cross@example.com');
-      const firstBabyId = await createBaby(cookie, csrfToken);
-      const secondBabyId = await createBaby(cookie, csrfToken);
-      const specialistId = await createSpecialist(cookie, csrfToken, firstBabyId);
-
-      // Both babies belong to the same user, so the access check passes and only the babyId
-      // comparison inside the use case stands between the caller and the wrong row.
-      const response = await app.inject({
-        method: 'PATCH',
-        url: `/babies/${secondBabyId}/specialists/${specialistId}`,
-        headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { phone: '+55 11 98888-1111' },
-      });
-
-      expect(response.statusCode).toBe(404);
-    });
-  });
-
-  describe('DELETE /babies/:babyId/specialists/:specialistId', () => {
     /**
-     * The guarantee this whole feature rests on: tidying the address book must not rewrite
-     * history. The appointment keeps its `doctorName` — the name as typed on the day — and only
-     * loses the link.
+     * O id da criança vem do cliente. Sem esta checagem, saber um uuid bastaria para pendurar uma
+     * entrada na criança de um estranho — e, pela união de visibilidade, fazê-la aparecer na lista
+     * daquela família.
      */
+    it("refuses to link a professional to a stranger's child", async () => {
+      const owner = await registerAndLogin('spec-link-owner@example.com');
+      const intruder = await registerAndLogin('spec-link-intruder@example.com');
+      const babyId = await createBaby(owner);
+
+      const response = await createSpecialist(intruder, { babyIds: [babyId] });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('refuses to share with someone who shares no child with you', async () => {
+      const owner = await registerAndLogin('spec-share-owner@example.com');
+      const stranger = await registerAndLogin('spec-share-stranger@example.com');
+      await createBaby(owner);
+
+      const response = await createSpecialist(owner, { sharedWithUserIds: [stranger.userId] });
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
+  describe('quem enxerga o quê', () => {
+    /**
+     * A união das três fontes, medida com dois usuários de verdade. É o comportamento inteiro desta
+     * feature num teste só: o vínculo com a criança compartilha, a ausência dele não, e o
+     * compartilhamento por nome resolve o caso que sobra.
+     */
+    it('o vínculo com a criança compartilha; sem vínculo, não', async () => {
+      const owner = await registerAndLogin('spec-vis-owner@example.com');
+      const coGuardian = await registerAndLogin('spec-vis-co@example.com');
+      const babyId = await createBaby(owner, 'Compartilhada');
+      await addAsGuardian(owner, babyId, coGuardian);
+
+      await createSpecialist(owner, { name: 'Ligada à criança', babyIds: [babyId] });
+      await createSpecialist(owner, { name: 'Agenda pessoal' });
+
+      expect(await listSpecialists(owner)).toEqual(['Agenda pessoal', 'Ligada à criança']);
+      // A outra responsável vê só a que está ligada à criança que as duas dividem.
+      expect(await listSpecialists(coGuardian)).toEqual(['Ligada à criança']);
+    });
+
+    it('o compartilhamento por nome alcança quem o vínculo não alcança', async () => {
+      const owner = await registerAndLogin('spec-share-flow-owner@example.com');
+      const coGuardian = await registerAndLogin('spec-share-flow-co@example.com');
+      const babyId = await createBaby(owner);
+      await addAsGuardian(owner, babyId, coGuardian);
+
+      await createSpecialist(owner, {
+        name: 'Sem criança, compartilhada',
+        sharedWithUserIds: [coGuardian.userId],
+      });
+
+      expect(await listSpecialists(coGuardian)).toEqual(['Sem criança, compartilhada']);
+    });
+
+    it('o filtro por criança estreita a lista, nunca a alarga', async () => {
+      const owner = await registerAndLogin('spec-filter@example.com');
+      const first = await createBaby(owner, 'Ana');
+      const second = await createBaby(owner, 'Bruno');
+      await createSpecialist(owner, { name: 'Da Ana', babyIds: [first] });
+      await createSpecialist(owner, { name: 'Do Bruno', babyIds: [second] });
+      await createSpecialist(owner, { name: 'De ninguém' });
+
+      expect(await listSpecialists(owner, `?babyId=${first}`)).toEqual(['Da Ana']);
+    });
+  });
+
+  describe('PATCH e DELETE /specialists/:specialistId', () => {
+    it('desvincula a última criança quando a lista vem vazia', async () => {
+      const owner = await registerAndLogin('spec-unlink@example.com');
+      const babyId = await createBaby(owner);
+      const created = await createSpecialist(owner, { babyIds: [babyId] });
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/specialists/${created.json().id}`,
+        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
+        payload: { babyIds: [] },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().babyIds).toEqual([]);
+    });
+
+    /**
+     * Enxergar não é possuir. O telefone de que a outra responsável depende não pode mudar debaixo
+     * dela porque alguém arrumou a **própria** agenda — e 404, não 403, para não confirmar a
+     * existência do id a quem o adivinhou.
+     */
+    it('quem só enxerga não edita nem apaga', async () => {
+      const owner = await registerAndLogin('spec-edit-owner@example.com');
+      const coGuardian = await registerAndLogin('spec-edit-co@example.com');
+      const babyId = await createBaby(owner);
+      await addAsGuardian(owner, babyId, coGuardian);
+      const created = await createSpecialist(owner, { babyIds: [babyId] });
+      const specialistId = created.json().id;
+
+      expect(await listSpecialists(coGuardian)).toEqual(['Dra. Fernanda Lima']);
+
+      const patchResponse = await app.inject({
+        method: 'PATCH',
+        url: `/specialists/${specialistId}`,
+        headers: { cookie: coGuardian.cookie, 'x-csrf-token': coGuardian.csrfToken },
+        payload: { phone: '+55 11 90000-0000' },
+      });
+      expect(patchResponse.statusCode).toBe(404);
+
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/specialists/${specialistId}`,
+        headers: { cookie: coGuardian.cookie, 'x-csrf-token': coGuardian.csrfToken },
+      });
+      expect(deleteResponse.statusCode).toBe(404);
+    });
+
     it('removes the specialist and leaves a recorded visit intact', async () => {
-      const { cookie, csrfToken } = await registerAndLogin('parent-specialist-delete@example.com');
-      const babyId = await createBaby(cookie, csrfToken);
-      const specialistId = await createSpecialist(cookie, csrfToken, babyId);
+      const owner = await registerAndLogin('spec-delete@example.com');
+      const babyId = await createBaby(owner);
+      const created = await createSpecialist(owner, { babyIds: [babyId] });
+      const specialistId = created.json().id;
 
       const appointmentResponse = await app.inject({
         method: 'POST',
         url: `/babies/${babyId}/appointments`,
-        headers: { cookie, 'x-csrf-token': csrfToken },
+        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
         payload: {
           scheduledAt: '2020-01-01T10:00:00.000Z',
           doctorName: 'Dra. Fernanda Lima',
@@ -206,44 +264,55 @@ describe('Specialist routes', () => {
           specialistId,
         },
       });
-
-      expect(appointmentResponse.statusCode).toBe(201);
       expect(appointmentResponse.json().specialistId).toBe(specialistId);
-      const appointmentId = appointmentResponse.json().id;
 
       const deleteResponse = await app.inject({
         method: 'DELETE',
-        url: `/babies/${babyId}/specialists/${specialistId}`,
-        headers: { cookie, 'x-csrf-token': csrfToken },
+        url: `/specialists/${specialistId}`,
+        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
       });
-
       expect(deleteResponse.statusCode).toBe(204);
 
       const afterDelete = await app.inject({
         method: 'GET',
         url: `/babies/${babyId}/appointments`,
-        headers: { cookie, 'x-csrf-token': csrfToken },
+        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
       });
 
-      expect(afterDelete.statusCode).toBe(200);
       const appointments = afterDelete.json();
       expect(appointments).toHaveLength(1);
-      expect(appointments[0].id).toBe(appointmentId);
       expect(appointments[0].doctorName).toBe('Dra. Fernanda Lima');
       expect(appointments[0].specialistId).toBeNull();
     });
+  });
 
-    it('answers 404 for a specialist that does not exist', async () => {
-      const { cookie, csrfToken } = await registerAndLogin('parent-specialist-missing@example.com');
-      const babyId = await createBaby(cookie, csrfToken);
+  describe('as rotas por criança, mantidas como ponte', () => {
+    /**
+     * O front em produção fala com elas. Sem a ponte, a lista some da tela de edição da criança no
+     * intervalo entre os dois deploys, e cadastrar um profissional novo responderia 404.
+     */
+    it('cadastra e lista pelo caminho antigo, já no modelo novo', async () => {
+      const owner = await registerAndLogin('spec-bridge@example.com');
+      const babyId = await createBaby(owner);
 
-      const response = await app.inject({
-        method: 'DELETE',
-        url: `/babies/${babyId}/specialists/11111111-1111-4111-8111-111111111111`,
-        headers: { cookie, 'x-csrf-token': csrfToken },
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/specialists`,
+        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
+        payload: { name: 'Pelo caminho antigo', phone: '+55 11 99999-0000' },
       });
 
-      expect(response.statusCode).toBe(404);
+      expect(createResponse.statusCode).toBe(201);
+      // O espelho `babyId` é o que o front antigo lê; `babyIds` é o modelo novo por baixo.
+      expect(createResponse.json()).toMatchObject({ babyId, babyIds: [babyId] });
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/specialists`,
+        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
+      });
+
+      expect(listResponse.json()).toHaveLength(1);
     });
   });
 });

@@ -2,16 +2,23 @@ import { describe, expect, it, vi } from 'vitest';
 import { CreateSpecialistUseCase } from '../../../../src/application/specialist/create-specialist.use-case';
 import { UpdateSpecialistUseCase } from '../../../../src/application/specialist/update-specialist.use-case';
 import { DeleteSpecialistUseCase } from '../../../../src/application/specialist/delete-specialist.use-case';
+import { ListVisibleSpecialistsUseCase } from '../../../../src/application/specialist/list-visible-specialists.use-case';
 import { SpecialistNotFoundError } from '../../../../src/application/specialist/errors/specialist-not-found.error';
+import { SpecialistBabyForbiddenError } from '../../../../src/application/specialist/errors/specialist-baby-forbidden.error';
+import { SpecialistShareForbiddenError } from '../../../../src/application/specialist/errors/specialist-share-forbidden.error';
 import { SpecialistRepository } from '../../../../src/application/specialist/specialist-repository';
-import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
+import { BabyGuardianRepository } from '../../../../src/application/baby/baby-guardian-repository';
 import { Specialist } from '../../../../src/domain/specialist/specialist';
-import { buildBabyGuardianRepository, buildBabyRepository } from '../appointment/appointment-test-helpers';
+import { BabyGuardian } from '../../../../src/domain/baby/baby-guardian';
+
+const OWNER = 'owner-id';
+const CO_GUARDIAN = 'co-guardian-id';
+const OWN_BABY = 'baby-1';
 
 function buildSpecialist(overrides: Partial<Parameters<typeof Specialist.register>[0]> = {}): Specialist {
   return Specialist.register({
     id: 'specialist-1',
-    babyId: 'baby-1',
+    userId: OWNER,
     name: 'Dra. Fernanda Lima',
     specialty: 'Pediatria',
     phone: '+55 11 99999-0000',
@@ -22,75 +29,151 @@ function buildSpecialist(overrides: Partial<Parameters<typeof Specialist.registe
 function buildSpecialistRepository(overrides: Partial<SpecialistRepository> = {}): SpecialistRepository {
   return {
     findById: vi.fn().mockResolvedValue(null),
-    findAllByBabyId: vi.fn().mockResolvedValue([]),
+    findAllVisibleTo: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
     delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
 
+/** O dono é guardião de `baby-1`, e `co-guardian-id` divide essa mesma criança com ele. */
+function buildBabyGuardianRepository(overrides: Partial<BabyGuardianRepository> = {}): BabyGuardianRepository {
+  return {
+    findByBabyAndUser: vi.fn().mockResolvedValue(null),
+    findAllByBaby: vi.fn(async (babyId: string) =>
+      babyId === OWN_BABY
+        ? [
+            BabyGuardian.create({ id: 'g1', babyId: OWN_BABY, userId: OWNER, role: 'OWNER' }),
+            BabyGuardian.create({ id: 'g2', babyId: OWN_BABY, userId: CO_GUARDIAN, role: 'GUARDIAN' }),
+          ]
+        : [],
+    ),
+    findAllByUser: vi.fn(async (userId: string) =>
+      userId === OWNER ? [BabyGuardian.create({ id: 'g1', babyId: OWN_BABY, userId: OWNER, role: 'OWNER' })] : [],
+    ),
+    create: vi.fn(),
+    delete: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
 describe('CreateSpecialistUseCase', () => {
-  it("refuses to save a specialist on a baby the caller cannot reach", async () => {
+  it('saves an entry linked to no child at all', async () => {
     const specialistRepository = buildSpecialistRepository();
-    const useCase = new CreateSpecialistUseCase(
-      buildBabyRepository(),
-      buildBabyGuardianRepository(),
-      specialistRepository,
-    );
+    const useCase = new CreateSpecialistUseCase(buildBabyGuardianRepository(), specialistRepository);
+
+    const specialist = await useCase.execute({ requestingUserId: OWNER, name: 'Dra. Fernanda Lima' });
+
+    expect(specialist.babyIds).toEqual([]);
+    expect(specialist.sharedWithUserIds).toEqual([]);
+    expect(specialistRepository.save).toHaveBeenCalledWith(specialist);
+  });
+
+  /**
+   * O id da criança vem do cliente. Sem esta checagem, saber um uuid bastaria para pendurar uma
+   * entrada na criança de um estranho e fazê-la aparecer na lista daquela família.
+   */
+  it("refuses a child the caller cannot reach", async () => {
+    const specialistRepository = buildSpecialistRepository();
+    const useCase = new CreateSpecialistUseCase(buildBabyGuardianRepository(), specialistRepository);
 
     await expect(
-      useCase.execute({ babyId: 'baby-1', requestingUserId: 'intruder-id', name: 'Dra. Fernanda Lima' }),
-    ).rejects.toThrow(BabyNotFoundError);
+      useCase.execute({ requestingUserId: OWNER, name: 'Dra. Fernanda Lima', babyIds: ['someone-elses-baby'] }),
+    ).rejects.toThrow(SpecialistBabyForbiddenError);
 
     expect(specialistRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('shares with a co-guardian, and refuses a stranger', async () => {
+    const specialistRepository = buildSpecialistRepository();
+    const useCase = new CreateSpecialistUseCase(buildBabyGuardianRepository(), specialistRepository);
+
+    const shared = await useCase.execute({
+      requestingUserId: OWNER,
+      name: 'Dra. Fernanda Lima',
+      sharedWithUserIds: [CO_GUARDIAN],
+    });
+    expect(shared.sharedWithUserIds).toEqual([CO_GUARDIAN]);
+
+    await expect(
+      useCase.execute({ requestingUserId: OWNER, name: 'Dra. Fernanda Lima', sharedWithUserIds: ['stranger-id'] }),
+    ).rejects.toThrow(SpecialistShareForbiddenError);
+  });
+
+  it('drops the owner from their own share list', async () => {
+    const useCase = new CreateSpecialistUseCase(buildBabyGuardianRepository(), buildSpecialistRepository());
+
+    const specialist = await useCase.execute({
+      requestingUserId: OWNER,
+      name: 'Dra. Fernanda Lima',
+      sharedWithUserIds: [OWNER],
+    });
+
+    // Compartilhar consigo não é compartilhar, e apareceria como se outra pessoa tivesse dado
+    // acesso à própria entrada.
+    expect(specialist.sharedWithUserIds).toEqual([]);
+  });
+});
+
+describe('ListVisibleSpecialistsUseCase', () => {
+  it('narrows to one child without widening what is visible', async () => {
+    const linked = buildSpecialist({ id: 'linked', name: 'Da criança', babyIds: [OWN_BABY] });
+    const private_ = buildSpecialist({ id: 'private', name: 'De ninguém' });
+    const useCase = new ListVisibleSpecialistsUseCase(
+      buildSpecialistRepository({ findAllVisibleTo: vi.fn().mockResolvedValue([linked, private_]) }),
+    );
+
+    expect(await useCase.execute({ requestingUserId: OWNER })).toHaveLength(2);
+    expect(await useCase.execute({ requestingUserId: OWNER, babyId: OWN_BABY })).toEqual([linked]);
   });
 });
 
 describe('UpdateSpecialistUseCase', () => {
-  it('changes only the field it was given', async () => {
+  it('changes only what it was given', async () => {
     const specialistRepository = buildSpecialistRepository({
-      findById: vi.fn().mockResolvedValue(buildSpecialist()),
+      findById: vi.fn().mockResolvedValue(buildSpecialist({ babyIds: [OWN_BABY] })),
     });
-    const useCase = new UpdateSpecialistUseCase(
-      buildBabyRepository(),
-      buildBabyGuardianRepository(),
-      specialistRepository,
-    );
+    const useCase = new UpdateSpecialistUseCase(buildBabyGuardianRepository(), specialistRepository);
 
     const updated = await useCase.execute({
-      babyId: 'baby-1',
       specialistId: 'specialist-1',
-      requestingUserId: 'owner-id',
+      requestingUserId: OWNER,
       phone: '+55 11 98888-1111',
     });
 
     expect(updated.phone).toBe('+55 11 98888-1111');
     expect(updated.name).toBe('Dra. Fernanda Lima');
-    expect(updated.specialty).toBe('Pediatria');
+    // Ausente é "não mexa nos vínculos" — e é diferente de `[]`, que é "nenhuma criança".
+    expect(updated.babyIds).toEqual([OWN_BABY]);
+  });
+
+  it('unlinks every child when the list comes empty', async () => {
+    const specialistRepository = buildSpecialistRepository({
+      findById: vi.fn().mockResolvedValue(buildSpecialist({ babyIds: [OWN_BABY] })),
+    });
+    const useCase = new UpdateSpecialistUseCase(buildBabyGuardianRepository(), specialistRepository);
+
+    const updated = await useCase.execute({
+      specialistId: 'specialist-1',
+      requestingUserId: OWNER,
+      babyIds: [],
+    });
+
+    expect(updated.babyIds).toEqual([]);
   });
 
   /**
-   * Knowing a specialist id must not be enough to reach that row through a different baby — even
-   * one the caller does have access to. This is the check that the access guard above it cannot
-   * make, because that guard only answers "may you touch this baby".
+   * Enxergar não é possuir: o telefone de que a outra responsável depende não pode mudar debaixo
+   * dela porque alguém arrumou a própria agenda. E 404, não 403, para não confirmar o id.
    */
-  it('refuses a specialist that belongs to another baby', async () => {
+  it('refuses somebody who only sees the entry', async () => {
     const specialistRepository = buildSpecialistRepository({
-      findById: vi.fn().mockResolvedValue(buildSpecialist({ babyId: 'another-baby' })),
+      findById: vi.fn().mockResolvedValue(buildSpecialist({ babyIds: [OWN_BABY] })),
     });
-    const useCase = new UpdateSpecialistUseCase(
-      buildBabyRepository(),
-      buildBabyGuardianRepository(),
-      specialistRepository,
-    );
+    const useCase = new UpdateSpecialistUseCase(buildBabyGuardianRepository(), specialistRepository);
 
     await expect(
-      useCase.execute({
-        babyId: 'baby-1',
-        specialistId: 'specialist-1',
-        requestingUserId: 'owner-id',
-        phone: '+55 11 98888-1111',
-      }),
+      useCase.execute({ specialistId: 'specialist-1', requestingUserId: CO_GUARDIAN, phone: '+55 11 90000-0000' }),
     ).rejects.toThrow(SpecialistNotFoundError);
 
     expect(specialistRepository.save).not.toHaveBeenCalled();
@@ -98,33 +181,29 @@ describe('UpdateSpecialistUseCase', () => {
 });
 
 describe('DeleteSpecialistUseCase', () => {
-  it('deletes the specialist and nothing else', async () => {
+  it('deletes the entry it owns', async () => {
     const specialistRepository = buildSpecialistRepository({
       findById: vi.fn().mockResolvedValue(buildSpecialist()),
     });
-    const useCase = new DeleteSpecialistUseCase(
-      buildBabyRepository(),
-      buildBabyGuardianRepository(),
-      specialistRepository,
-    );
+    const useCase = new DeleteSpecialistUseCase(specialistRepository);
 
-    await useCase.execute({ babyId: 'baby-1', specialistId: 'specialist-1', requestingUserId: 'owner-id' });
+    await useCase.execute({ specialistId: 'specialist-1', requestingUserId: OWNER });
 
     expect(specialistRepository.delete).toHaveBeenCalledWith('specialist-1');
   });
 
-  it('refuses a specialist that does not exist', async () => {
-    const specialistRepository = buildSpecialistRepository();
-    const useCase = new DeleteSpecialistUseCase(
-      buildBabyRepository(),
-      buildBabyGuardianRepository(),
-      specialistRepository,
-    );
+  it('refuses an entry owned by somebody else, and one that does not exist', async () => {
+    const owned = buildSpecialistRepository({ findById: vi.fn().mockResolvedValue(buildSpecialist()) });
+    const missing = buildSpecialistRepository();
 
     await expect(
-      useCase.execute({ babyId: 'baby-1', specialistId: 'missing', requestingUserId: 'owner-id' }),
+      new DeleteSpecialistUseCase(owned).execute({ specialistId: 'specialist-1', requestingUserId: CO_GUARDIAN }),
     ).rejects.toThrow(SpecialistNotFoundError);
 
-    expect(specialistRepository.delete).not.toHaveBeenCalled();
+    await expect(
+      new DeleteSpecialistUseCase(missing).execute({ specialistId: 'missing', requestingUserId: OWNER }),
+    ).rejects.toThrow(SpecialistNotFoundError);
+
+    expect(owned.delete).not.toHaveBeenCalled();
   });
 });
