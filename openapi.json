@@ -1929,6 +1929,14 @@
                                     "CANCELLED"
                                   ]
                                 },
+                                "weightGrams": {
+                                  "type": "integer",
+                                  "nullable": true
+                                },
+                                "heightMillimeters": {
+                                  "type": "integer",
+                                  "nullable": true
+                                },
                                 "createdAt": {
                                   "type": "string",
                                   "format": "date-time"
@@ -1944,6 +1952,8 @@
                                 "reason",
                                 "notes",
                                 "status",
+                                "weightGrams",
+                                "heightMillimeters",
                                 "createdAt"
                               ],
                               "additionalProperties": false,
@@ -4228,6 +4238,18 @@
                     "type": "string",
                     "description": "Reason for the visit, e.g. routine check-up"
                   },
+                  "weightGrams": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 150000,
+                    "description": "Weight at the visit, in grams (100 g to 150 kg)"
+                  },
+                  "heightMillimeters": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 2500,
+                    "description": "Height at the visit, in millimetres (10 cm to 250 cm)"
+                  },
                   "status": {
                     "type": "string",
                     "enum": [
@@ -4304,6 +4326,14 @@
                         "CANCELLED"
                       ]
                     },
+                    "weightGrams": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "heightMillimeters": {
+                      "type": "integer",
+                      "nullable": true
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -4319,6 +4349,8 @@
                     "reason",
                     "notes",
                     "status",
+                    "weightGrams",
+                    "heightMillimeters",
                     "createdAt"
                   ],
                   "additionalProperties": false,
@@ -4513,6 +4545,14 @@
                           "CANCELLED"
                         ]
                       },
+                      "weightGrams": {
+                        "type": "integer",
+                        "nullable": true
+                      },
+                      "heightMillimeters": {
+                        "type": "integer",
+                        "nullable": true
+                      },
                       "createdAt": {
                         "type": "string",
                         "format": "date-time"
@@ -4528,6 +4568,8 @@
                       "reason",
                       "notes",
                       "status",
+                      "weightGrams",
+                      "heightMillimeters",
                       "createdAt"
                     ],
                     "additionalProperties": false,
@@ -4694,6 +4736,14 @@
                         "CANCELLED"
                       ]
                     },
+                    "weightGrams": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "heightMillimeters": {
+                      "type": "integer",
+                      "nullable": true
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -4709,6 +4759,8 @@
                     "reason",
                     "notes",
                     "status",
+                    "weightGrams",
+                    "heightMillimeters",
                     "createdAt"
                   ],
                   "additionalProperties": false,
@@ -4838,6 +4890,20 @@
                     "nullable": true,
                     "description": "Notes added after the visit, e.g. reactions, recommendations"
                   },
+                  "weightGrams": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 150000,
+                    "description": "Weight at the visit, in grams (100 g to 150 kg)",
+                    "nullable": true
+                  },
+                  "heightMillimeters": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 2500,
+                    "description": "Height at the visit, in millimetres (10 cm to 250 cm)",
+                    "nullable": true
+                  },
                   "status": {
                     "type": "string",
                     "enum": [
@@ -4918,6 +4984,14 @@
                         "CANCELLED"
                       ]
                     },
+                    "weightGrams": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "heightMillimeters": {
+                      "type": "integer",
+                      "nullable": true
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -4933,6 +5007,8 @@
                     "reason",
                     "notes",
                     "status",
+                    "weightGrams",
+                    "heightMillimeters",
                     "createdAt"
                   ],
                   "additionalProperties": false,

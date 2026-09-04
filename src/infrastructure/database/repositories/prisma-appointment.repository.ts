@@ -12,6 +12,8 @@ interface AppointmentRow {
   reason: string | null;
   notes: string | null;
   status: string;
+  weightGrams: number | null;
+  heightMillimeters: number | null;
   createdAt: Date;
 }
 
@@ -26,6 +28,8 @@ function toDomain(row: AppointmentRow): Appointment {
     reason: row.reason,
     notes: row.notes,
     status: row.status as AppointmentStatus,
+    weightGrams: row.weightGrams,
+    heightMillimeters: row.heightMillimeters,
     createdAt: row.createdAt,
   });
 }
@@ -71,6 +75,8 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
         reason: appointment.reason,
         notes: appointment.notes,
         status: appointment.status,
+        weightGrams: appointment.weightGrams,
+        heightMillimeters: appointment.heightMillimeters,
         createdAt: appointment.createdAt,
       },
       update: {
@@ -81,6 +87,8 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
         reason: appointment.reason,
         notes: appointment.notes,
         status: appointment.status,
+        weightGrams: appointment.weightGrams,
+        heightMillimeters: appointment.heightMillimeters,
       },
     });
   }

@@ -13,6 +13,8 @@ export interface CreateAppointmentInput {
   specialty?: string | null;
   location?: string | null;
   reason?: string | null;
+  weightGrams?: number | null;
+  heightMillimeters?: number | null;
   referenceDate?: Date;
   /**
    * COMPLETED enters a consultation that already happened, and requires a date in the past.
@@ -41,6 +43,8 @@ export class CreateAppointmentUseCase {
       specialty: input.specialty,
       location: input.location,
       reason: input.reason,
+      weightGrams: input.weightGrams,
+      heightMillimeters: input.heightMillimeters,
       referenceDate: input.referenceDate,
     });
 

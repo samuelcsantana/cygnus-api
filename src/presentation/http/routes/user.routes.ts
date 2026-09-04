@@ -162,6 +162,8 @@ export async function userRoutes(app: App) {
               reason: appointment.reason,
               notes: appointment.notes,
               status: appointment.status,
+              weightGrams: appointment.weightGrams,
+              heightMillimeters: appointment.heightMillimeters,
               createdAt: appointment.createdAt.toISOString(),
             })),
             milestones: milestones.map((milestone) => ({

@@ -17,6 +17,8 @@ export interface UpdateAppointmentInput {
   reason?: string | null;
   notes?: string | null;
   status?: 'COMPLETED' | 'CANCELLED';
+  weightGrams?: number | null;
+  heightMillimeters?: number | null;
   referenceDate?: Date;
 }
 
@@ -50,6 +52,16 @@ export class UpdateAppointmentUseCase {
       Appointment.assertNotInThePast(input.scheduledAt, input.referenceDate);
     }
 
+    const status = input.status ?? existingAppointment.status;
+    const weightGrams = input.weightGrams !== undefined ? input.weightGrams : existingAppointment.weightGrams;
+    const heightMillimeters =
+      input.heightMillimeters !== undefined ? input.heightMillimeters : existingAppointment.heightMillimeters;
+
+    // Against the status the appointment ends up with, not the one it had: completing a visit and
+    // entering what the scale said is one PATCH, and splitting it into two would be the API asking
+    // the caller to work around a rule instead of following it.
+    Appointment.assertMeasurementsFollowTheVisit(status, weightGrams, heightMillimeters);
+
     const updatedAppointment = Appointment.restore({
       id: existingAppointment.id,
       babyId: existingAppointment.babyId,
@@ -59,7 +71,9 @@ export class UpdateAppointmentUseCase {
       location: input.location !== undefined ? input.location : existingAppointment.location,
       reason: input.reason !== undefined ? input.reason : existingAppointment.reason,
       notes: input.notes !== undefined ? input.notes : existingAppointment.notes,
-      status: input.status ?? existingAppointment.status,
+      status,
+      weightGrams,
+      heightMillimeters,
       createdAt: existingAppointment.createdAt,
     });
 
