@@ -1,13 +1,13 @@
 import { PrismaClient } from '../../../generated/prisma/client';
 import { BabyRepository } from '../../../application/baby/baby-repository';
-import { Baby, BabyGender } from '../../../domain/baby/baby';
+import { Baby, BabySexAtBirth } from '../../../domain/baby/baby';
 
 interface BabyRecord {
   id: string;
   userId: string;
   name: string;
   birthDate: Date;
-  gender: string;
+  sexAtBirth: string | null;
   bloodType: string | null;
   allergies: string[];
   healthPlanName: string | null;
@@ -23,7 +23,7 @@ function toDomain(record: BabyRecord): Baby {
     userId: record.userId,
     name: record.name,
     birthDate: record.birthDate,
-    gender: record.gender as BabyGender,
+    sexAtBirth: record.sexAtBirth as BabySexAtBirth | null,
     bloodType: record.bloodType,
     allergies: record.allergies,
     healthPlanName: record.healthPlanName,
@@ -60,7 +60,7 @@ export class PrismaBabyRepository implements BabyRepository {
         userId: baby.userId,
         name: baby.name,
         birthDate: baby.birthDate,
-        gender: baby.gender,
+        sexAtBirth: baby.sexAtBirth,
         bloodType: baby.bloodType,
         allergies: baby.allergies,
         healthPlanName: baby.healthPlanName,
@@ -72,7 +72,7 @@ export class PrismaBabyRepository implements BabyRepository {
       update: {
         name: baby.name,
         birthDate: baby.birthDate,
-        gender: baby.gender,
+        sexAtBirth: baby.sexAtBirth,
         bloodType: baby.bloodType,
         allergies: baby.allergies,
         healthPlanName: baby.healthPlanName,

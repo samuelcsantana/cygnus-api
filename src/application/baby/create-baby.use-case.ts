@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Baby, BabyGender } from '../../domain/baby/baby';
+import { Baby, BabySexAtBirth } from '../../domain/baby/baby';
 import { BabyRepository } from './baby-repository';
 import { BabyGuardianRepository } from './baby-guardian-repository';
 
@@ -7,7 +7,7 @@ export interface CreateBabyInput {
   userId: string;
   name: string;
   birthDate: Date;
-  gender: BabyGender;
+  sexAtBirth?: BabySexAtBirth | null;
   bloodType?: string | null;
   allergies?: string[];
   healthPlanName?: string | null;
@@ -28,7 +28,7 @@ export class CreateBabyUseCase {
       userId: input.userId,
       name: input.name,
       birthDate: input.birthDate,
-      gender: input.gender,
+      sexAtBirth: input.sexAtBirth,
       bloodType: input.bloodType,
       allergies: input.allergies,
       healthPlanName: input.healthPlanName,

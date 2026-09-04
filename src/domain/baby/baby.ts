@@ -1,14 +1,15 @@
 import { FutureBirthDateError } from './errors/future-birth-date.error';
 import { InvalidBabyNameError } from './errors/invalid-baby-name.error';
 
-export type BabyGender = 'MALE' | 'FEMALE';
+/** Sexo ao nascer — variável clínica, não identidade de gênero. Opcional: `null` é "não informado". */
+export type BabySexAtBirth = 'MALE' | 'FEMALE';
 
 export interface BabyProps {
   id: string;
   userId: string;
   name: string;
   birthDate: Date;
-  gender: BabyGender;
+  sexAtBirth: BabySexAtBirth | null;
   bloodType: string | null;
   allergies: string[];
   healthPlanName: string | null;
@@ -23,7 +24,7 @@ export interface CreateBabyProps {
   userId: string;
   name: string;
   birthDate: Date;
-  gender: BabyGender;
+  sexAtBirth?: BabySexAtBirth | null;
   bloodType?: string | null;
   allergies?: string[];
   healthPlanName?: string | null;
@@ -38,7 +39,7 @@ export class Baby {
   readonly userId: string;
   readonly name: string;
   readonly birthDate: Date;
-  readonly gender: BabyGender;
+  readonly sexAtBirth: BabySexAtBirth | null;
   readonly bloodType: string | null;
   readonly allergies: string[];
   readonly healthPlanName: string | null;
@@ -52,7 +53,7 @@ export class Baby {
     this.userId = props.userId;
     this.name = props.name;
     this.birthDate = props.birthDate;
-    this.gender = props.gender;
+    this.sexAtBirth = props.sexAtBirth;
     this.bloodType = props.bloodType;
     this.allergies = props.allergies;
     this.healthPlanName = props.healthPlanName;
@@ -78,7 +79,7 @@ export class Baby {
       userId: props.userId,
       name,
       birthDate: props.birthDate,
-      gender: props.gender,
+      sexAtBirth: props.sexAtBirth ?? null,
       bloodType: props.bloodType ?? null,
       allergies: props.allergies ?? [],
       healthPlanName: props.healthPlanName ?? null,

@@ -13,7 +13,7 @@ describe('CreateBabyUseCase', () => {
       userId: 'owner-id',
       name: 'Baby Doe',
       birthDate: new Date('2024-01-15T00:00:00.000Z'),
-      gender: 'FEMALE',
+      sexAtBirth: 'FEMALE',
     });
 
     expect(baby.userId).toBe('owner-id');
@@ -29,7 +29,7 @@ describe('CreateBabyUseCase', () => {
     const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     await expect(
-      useCase.execute({ userId: 'owner-id', name: 'Baby Doe', birthDate: futureDate, gender: 'MALE' }),
+      useCase.execute({ userId: 'owner-id', name: 'Baby Doe', birthDate: futureDate, sexAtBirth: 'MALE' }),
     ).rejects.toThrow(FutureBirthDateError);
 
     expect(babyRepository.save).not.toHaveBeenCalled();

@@ -21,7 +21,7 @@ export function buildBaby(overrides: Partial<Parameters<typeof Baby.create>[0]> 
     userId: 'owner-id',
     name: 'Baby Doe',
     birthDate: new Date('2024-01-15T00:00:00.000Z'),
-    gender: 'FEMALE',
+    sexAtBirth: 'FEMALE',
     ...overrides,
   });
 }
