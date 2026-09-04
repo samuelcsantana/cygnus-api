@@ -11,6 +11,8 @@ export interface BabyProps {
   gender: BabyGender;
   bloodType: string | null;
   allergies: string[];
+  healthPlanName: string | null;
+  healthPlanNumber: string | null;
   avatarUrl: string | null;
   avatarColor: string | null;
   createdAt: Date;
@@ -24,6 +26,8 @@ export interface CreateBabyProps {
   gender: BabyGender;
   bloodType?: string | null;
   allergies?: string[];
+  healthPlanName?: string | null;
+  healthPlanNumber?: string | null;
   avatarUrl?: string | null;
   avatarColor?: string | null;
   createdAt?: Date;
@@ -37,6 +41,8 @@ export class Baby {
   readonly gender: BabyGender;
   readonly bloodType: string | null;
   readonly allergies: string[];
+  readonly healthPlanName: string | null;
+  readonly healthPlanNumber: string | null;
   readonly avatarUrl: string | null;
   readonly avatarColor: string | null;
   readonly createdAt: Date;
@@ -49,6 +55,8 @@ export class Baby {
     this.gender = props.gender;
     this.bloodType = props.bloodType;
     this.allergies = props.allergies;
+    this.healthPlanName = props.healthPlanName;
+    this.healthPlanNumber = props.healthPlanNumber;
     this.avatarUrl = props.avatarUrl;
     this.avatarColor = props.avatarColor;
     this.createdAt = props.createdAt;
@@ -73,6 +81,8 @@ export class Baby {
       gender: props.gender,
       bloodType: props.bloodType ?? null,
       allergies: props.allergies ?? [],
+      healthPlanName: props.healthPlanName ?? null,
+      healthPlanNumber: props.healthPlanNumber ?? null,
       avatarUrl: props.avatarUrl ?? null,
       avatarColor: props.avatarColor ?? null,
       createdAt: props.createdAt ?? new Date(),
