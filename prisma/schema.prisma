@@ -168,17 +168,23 @@ enum AppointmentStatus {
 }
 
 model Appointment {
-  id          String            @id @default(uuid())
-  babyId      String            @map("baby_id")
-  baby        Baby              @relation(fields: [babyId], references: [id], onDelete: Cascade)
-  scheduledAt DateTime          @map("scheduled_at")
-  doctorName  String            @map("doctor_name")
-  specialty   String?
-  location    String?
-  reason      String?
-  notes       String?
-  status      AppointmentStatus @default(SCHEDULED)
-  createdAt   DateTime          @default(now()) @map("created_at")
+  id                String            @id @default(uuid())
+  babyId            String            @map("baby_id")
+  baby              Baby              @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  scheduledAt       DateTime          @map("scheduled_at")
+  doctorName        String            @map("doctor_name")
+  specialty         String?
+  location          String?
+  reason            String?
+  notes             String?
+  status            AppointmentStatus @default(SCHEDULED)
+  // Integers in the smallest unit the instrument reads, not decimals: these are the raw material
+  // of a growth curve, so they get summed, averaged and interpolated. A float that survives a
+  // round trip through JSON and JS arithmetic prints 15.799999999999999 sooner or later, and the
+  // unit is in the name so no consumer has to guess whether 15.8 meant kilos or pounds.
+  weightGrams       Int?              @map("weight_grams")
+  heightMillimeters Int?              @map("height_millimeters")
+  createdAt         DateTime          @default(now()) @map("created_at")
 
   @@index([babyId])
   @@map("appointments")

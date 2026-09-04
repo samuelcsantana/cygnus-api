@@ -1,5 +1,6 @@
 import { InvalidDoctorNameError } from './errors/invalid-doctor-name.error';
 import { FutureVisitRecordError } from './errors/future-visit-record.error';
+import { MeasurementBeforeVisitError } from './errors/measurement-before-visit.error';
 import { PastAppointmentDateError } from './errors/past-appointment-date.error';
 
 export type AppointmentStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
@@ -14,6 +15,8 @@ export interface AppointmentProps {
   reason: string | null;
   notes: string | null;
   status: AppointmentStatus;
+  weightGrams: number | null;
+  heightMillimeters: number | null;
   createdAt: Date;
 }
 
@@ -25,6 +28,8 @@ export interface ScheduleAppointmentProps {
   specialty?: string | null;
   location?: string | null;
   reason?: string | null;
+  weightGrams?: number | null;
+  heightMillimeters?: number | null;
   createdAt?: Date;
   referenceDate?: Date;
 }
@@ -39,6 +44,8 @@ export class Appointment {
   readonly reason: string | null;
   readonly notes: string | null;
   readonly status: AppointmentStatus;
+  readonly weightGrams: number | null;
+  readonly heightMillimeters: number | null;
   readonly createdAt: Date;
 
   private constructor(props: AppointmentProps) {
@@ -51,6 +58,8 @@ export class Appointment {
     this.reason = props.reason;
     this.notes = props.notes;
     this.status = props.status;
+    this.weightGrams = props.weightGrams;
+    this.heightMillimeters = props.heightMillimeters;
     this.createdAt = props.createdAt;
   }
 
@@ -72,6 +81,31 @@ export class Appointment {
     }
   }
 
+  /**
+   * A weight or a height is something a scale and a stadiometer produced during the visit, so a
+   * visit still in the future cannot carry either.
+   *
+   * This is not tidiness. These rows are the growth series, and a measurement attached to an
+   * appointment that has not happened would plot a point in the future — visibly wrong on a chart,
+   * and impossible to tell apart from a real one once stored.
+   */
+  static assertMeasurementsFollowTheVisit(
+    status: AppointmentStatus,
+    weightGrams: number | null | undefined,
+    heightMillimeters: number | null | undefined,
+  ): void {
+    if (status !== 'SCHEDULED') {
+      return;
+    }
+
+    const hasWeight = weightGrams !== null && weightGrams !== undefined;
+    const hasHeight = heightMillimeters !== null && heightMillimeters !== undefined;
+
+    if (hasWeight || hasHeight) {
+      throw new MeasurementBeforeVisitError();
+    }
+  }
+
   static schedule(props: ScheduleAppointmentProps): Appointment {
     const doctorName = props.doctorName.trim();
 
@@ -80,6 +114,7 @@ export class Appointment {
     }
 
     Appointment.assertNotInThePast(props.scheduledAt, props.referenceDate);
+    Appointment.assertMeasurementsFollowTheVisit('SCHEDULED', props.weightGrams, props.heightMillimeters);
 
     return new Appointment({
       id: props.id,
@@ -91,6 +126,8 @@ export class Appointment {
       reason: props.reason ?? null,
       notes: null,
       status: 'SCHEDULED',
+      weightGrams: null,
+      heightMillimeters: null,
       createdAt: props.createdAt ?? new Date(),
     });
   }
@@ -122,6 +159,8 @@ export class Appointment {
       reason: props.reason ?? null,
       notes: null,
       status: 'COMPLETED',
+      weightGrams: props.weightGrams ?? null,
+      heightMillimeters: props.heightMillimeters ?? null,
       createdAt: props.createdAt ?? new Date(),
     });
   }

@@ -38,6 +38,8 @@ function toResponse(appointment: Appointment) {
     reason: appointment.reason,
     notes: appointment.notes,
     status: appointment.status,
+    weightGrams: appointment.weightGrams,
+    heightMillimeters: appointment.heightMillimeters,
     createdAt: appointment.createdAt.toISOString(),
   };
 }
@@ -100,6 +102,8 @@ export async function appointmentRoutes(app: App) {
           specialty: request.body.specialty,
           location: request.body.location,
           reason: request.body.reason,
+          weightGrams: request.body.weightGrams,
+          heightMillimeters: request.body.heightMillimeters,
           status: request.body.status,
         });
 
@@ -230,6 +234,8 @@ export async function appointmentRoutes(app: App) {
           location: request.body.location,
           reason: request.body.reason,
           notes: request.body.notes,
+          weightGrams: request.body.weightGrams,
+          heightMillimeters: request.body.heightMillimeters,
           status: request.body.status,
         });
 

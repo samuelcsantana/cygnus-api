@@ -132,6 +132,41 @@ describe('Appointment routes', () => {
       expect(response.json()).toMatchObject({ status: 'COMPLETED', specialty: 'Pediatria' });
     });
 
+    it('records the weight and height taken at a past visit', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-record-measurements@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: {
+          scheduledAt: '2020-01-01T10:00:00.000Z',
+          doctorName: 'Dr. Ana Souza',
+          status: 'COMPLETED',
+          weightGrams: 15800,
+          heightMillimeters: 1000,
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toMatchObject({ weightGrams: 15800, heightMillimeters: 1000 });
+    });
+
+    it('refuses a measurement on a visit being booked for the future', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-book-measurements@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { scheduledAt: futureIsoString(7), doctorName: 'Dr. Ana Souza', weightGrams: 15800 },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
     it('rejects recording a consultation dated in the future', async () => {
       const { cookie, csrfToken } = await registerAndLogin('parent-record-future@example.com');
       const babyId = await createBaby(cookie, csrfToken);
@@ -295,6 +330,39 @@ describe('Appointment routes', () => {
       const body = response.json();
       expect(body.status).toBe('COMPLETED');
       expect(body.notes).toBe('Baby is healthy');
+    });
+
+    it('takes the measurements in the same request that completes the visit', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('parent-complete-measurements@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { scheduledAt: futureIsoString(1), doctorName: 'Dr. Ana Souza' },
+      });
+      const appointmentId = createResponse.json().id;
+
+      // Still upcoming: a measurement now would be a point plotted in the future.
+      const tooEarly = await app.inject({
+        method: 'PATCH',
+        url: `/babies/${babyId}/appointments/${appointmentId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { weightGrams: 15800 },
+      });
+
+      expect(tooEarly.statusCode).toBe(400);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/babies/${babyId}/appointments/${appointmentId}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { status: 'COMPLETED', weightGrams: 15800, heightMillimeters: 1000 },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ status: 'COMPLETED', weightGrams: 15800, heightMillimeters: 1000 });
     });
 
     it('rejects rescheduling to a past date', async () => {

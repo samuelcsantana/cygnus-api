@@ -2,6 +2,23 @@ import { z } from 'zod';
 
 const statusSchema = z.enum(['SCHEDULED', 'COMPLETED', 'CANCELLED']);
 
+// Whole units of gram and millimetre, the resolution a scale and a stadiometer actually read, and
+// the units are in the field names so nothing downstream has to guess. The bounds only reject what
+// no child can be — a mistyped extra digit — and stay wide on purpose: a growth record that
+// refuses a real measurement is worse than one that stores an odd-looking value.
+const weightGramsSchema = z
+  .number()
+  .int()
+  .min(100)
+  .max(150000)
+  .describe('Weight at the visit, in grams (100 g to 150 kg)');
+const heightMillimetersSchema = z
+  .number()
+  .int()
+  .min(100)
+  .max(2500)
+  .describe('Height at the visit, in millimetres (10 cm to 250 cm)');
+
 export const appointmentParamsSchema = z.object({
   babyId: z.string().uuid(),
 });
@@ -26,6 +43,8 @@ export const createAppointmentBodySchema = z.object({
   specialty: z.string().optional().describe('Medical specialty of the professional, e.g. Pediatria'),
   location: z.string().optional(),
   reason: z.string().optional().describe('Reason for the visit, e.g. routine check-up'),
+  weightGrams: weightGramsSchema.optional(),
+  heightMillimeters: heightMillimetersSchema.optional(),
   status: z
     .enum(['SCHEDULED', 'COMPLETED'])
     .optional()
@@ -43,6 +62,8 @@ export const updateAppointmentBodySchema = z
     location: z.string().nullable().optional(),
     reason: z.string().nullable().optional(),
     notes: z.string().nullable().optional().describe('Notes added after the visit, e.g. reactions, recommendations'),
+    weightGrams: weightGramsSchema.nullable().optional(),
+    heightMillimeters: heightMillimetersSchema.nullable().optional(),
     status: z.enum(['COMPLETED', 'CANCELLED']).optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: 'At least one field must be provided' });
@@ -58,6 +79,8 @@ export const appointmentResponseSchema = z
     reason: z.string().nullable(),
     notes: z.string().nullable(),
     status: statusSchema,
+    weightGrams: z.number().int().nullable(),
+    heightMillimeters: z.number().int().nullable(),
     createdAt: z.string().datetime(),
   })
   .describe('A pediatric appointment for a baby');
