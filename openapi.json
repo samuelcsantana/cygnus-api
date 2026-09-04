@@ -5358,13 +5358,13 @@
         }
       }
     },
-    "/babies/{babyId}/specialists": {
+    "/specialists": {
       "post": {
-        "summary": "Save a professional who looks after this baby",
+        "summary": "Save a professional who looks after this family",
         "tags": [
           "Specialists"
         ],
-        "description": "Specialists belong to the baby, not to the account, so whoever has guardian access to the baby sees them. Saving one never changes an appointment: `doctorName` stays as it was typed.",
+        "description": "The professional belongs to the account, not to one child. `babyIds` says which children they look after — none is valid, and makes it a private entry. Visibility is the union of three sources: you created it, it is linked to a child the reader can access, or it was shared with them by name.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5384,6 +5384,22 @@
                   "phone": {
                     "type": "string",
                     "description": "How to reach them. Stored as typed"
+                  },
+                  "babyIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "description": "Children this professional looks after. Omit or send [] for none — a private entry"
+                  },
+                  "sharedWithUserIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "description": "Guardians who should also see this entry. Restricted to people who already share a child with you"
                   }
                 },
                 "required": [
@@ -5394,20 +5410,9 @@
             }
           }
         },
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "in": "path",
-            "name": "babyId",
-            "required": true
-          }
-        ],
         "responses": {
           "201": {
-            "description": "A professional who looks after this baby",
+            "description": "A professional who looks after this family. Belongs to the account, not to one child",
             "content": {
               "application/json": {
                 "schema": {
@@ -5417,9 +5422,10 @@
                       "type": "string",
                       "format": "uuid"
                     },
-                    "babyId": {
+                    "userId": {
                       "type": "string",
-                      "format": "uuid"
+                      "format": "uuid",
+                      "description": "Who created it. Only this person can edit or remove it"
                     },
                     "name": {
                       "type": "string"
@@ -5432,6 +5438,25 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "babyIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "sharedWithUserIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "babyId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -5439,14 +5464,17 @@
                   },
                   "required": [
                     "id",
-                    "babyId",
+                    "userId",
                     "name",
                     "specialty",
                     "phone",
+                    "babyIds",
+                    "sharedWithUserIds",
+                    "babyId",
                     "createdAt"
                   ],
                   "additionalProperties": false,
-                  "description": "A professional who looks after this baby"
+                  "description": "A professional who looks after this family. Belongs to the account, not to one child"
                 }
               }
             }
@@ -5505,33 +5533,6 @@
               }
             }
           },
-          "404": {
-            "description": "The request could not be completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "error"
-                      ]
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "status",
-                    "message"
-                  ],
-                  "additionalProperties": false,
-                  "description": "The request could not be completed"
-                }
-              }
-            }
-          },
           "500": {
             "description": "The request could not be completed",
             "content": {
@@ -5562,20 +5563,21 @@
         }
       },
       "get": {
-        "summary": "List the professionals who look after a baby",
+        "summary": "List the professionals this account can see",
         "tags": [
           "Specialists"
         ],
-        "description": "Ordered by name, which is the order an address book is read in.",
+        "description": "Ordered by name. `babyId` narrows the list to one child without widening what is visible.",
         "parameters": [
           {
             "schema": {
               "type": "string",
               "format": "uuid"
             },
-            "in": "path",
+            "in": "query",
             "name": "babyId",
-            "required": true
+            "required": false,
+            "description": "Narrows the list to the professionals linked to this child"
           }
         ],
         "responses": {
@@ -5592,9 +5594,10 @@
                         "type": "string",
                         "format": "uuid"
                       },
-                      "babyId": {
+                      "userId": {
                         "type": "string",
-                        "format": "uuid"
+                        "format": "uuid",
+                        "description": "Who created it. Only this person can edit or remove it"
                       },
                       "name": {
                         "type": "string"
@@ -5607,6 +5610,25 @@
                         "type": "string",
                         "nullable": true
                       },
+                      "babyIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "sharedWithUserIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "babyId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                      },
                       "createdAt": {
                         "type": "string",
                         "format": "date-time"
@@ -5614,47 +5636,23 @@
                     },
                     "required": [
                       "id",
-                      "babyId",
+                      "userId",
                       "name",
                       "specialty",
                       "phone",
+                      "babyIds",
+                      "sharedWithUserIds",
+                      "babyId",
                       "createdAt"
                     ],
                     "additionalProperties": false,
-                    "description": "A professional who looks after this baby"
+                    "description": "A professional who looks after this family. Belongs to the account, not to one child"
                   }
                 }
               }
             }
           },
           "401": {
-            "description": "The request could not be completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "error"
-                      ]
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "status",
-                    "message"
-                  ],
-                  "additionalProperties": false,
-                  "description": "The request could not be completed"
-                }
-              }
-            }
-          },
-          "404": {
             "description": "The request could not be completed",
             "content": {
               "application/json": {
@@ -5711,12 +5709,13 @@
         }
       }
     },
-    "/babies/{babyId}/specialists/{specialistId}": {
+    "/specialists/{specialistId}": {
       "patch": {
         "summary": "Update a professional",
         "tags": [
           "Specialists"
         ],
+        "description": "Only whoever created it. Seeing an entry does not make it yours to rewrite.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5735,6 +5734,20 @@
                   "phone": {
                     "type": "string",
                     "nullable": true
+                  },
+                  "babyIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "sharedWithUserIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
                   }
                 },
                 "additionalProperties": false
@@ -5749,22 +5762,13 @@
               "format": "uuid"
             },
             "in": "path",
-            "name": "babyId",
-            "required": true
-          },
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "in": "path",
             "name": "specialistId",
             "required": true
           }
         ],
         "responses": {
           "200": {
-            "description": "A professional who looks after this baby",
+            "description": "A professional who looks after this family. Belongs to the account, not to one child",
             "content": {
               "application/json": {
                 "schema": {
@@ -5774,9 +5778,10 @@
                       "type": "string",
                       "format": "uuid"
                     },
-                    "babyId": {
+                    "userId": {
                       "type": "string",
-                      "format": "uuid"
+                      "format": "uuid",
+                      "description": "Who created it. Only this person can edit or remove it"
                     },
                     "name": {
                       "type": "string"
@@ -5789,6 +5794,25 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "babyIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "sharedWithUserIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "babyId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -5796,14 +5820,17 @@
                   },
                   "required": [
                     "id",
-                    "babyId",
+                    "userId",
                     "name",
                     "specialty",
                     "phone",
+                    "babyIds",
+                    "sharedWithUserIds",
+                    "babyId",
                     "createdAt"
                   ],
                   "additionalProperties": false,
-                  "description": "A professional who looks after this baby"
+                  "description": "A professional who looks after this family. Belongs to the account, not to one child"
                 }
               }
             }
@@ -5931,6 +5958,576 @@
               "format": "uuid"
             },
             "in": "path",
+            "name": "specialistId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Specialist removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "enum": [
+                    "null"
+                  ],
+                  "nullable": true,
+                  "description": "Specialist removed successfully"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/babies/{babyId}/specialists": {
+      "get": {
+        "summary": "[Deprecated] List the professionals linked to one child",
+        "tags": [
+          "Specialists"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "babyId",
+            "required": true
+          }
+        ],
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "userId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Who created it. Only this person can edit or remove it"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "specialty": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "phone": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "babyIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "sharedWithUserIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "babyId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "userId",
+                      "name",
+                      "specialty",
+                      "phone",
+                      "babyIds",
+                      "sharedWithUserIds",
+                      "babyId",
+                      "createdAt"
+                    ],
+                    "additionalProperties": false,
+                    "description": "A professional who looks after this family. Belongs to the account, not to one child"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "[Deprecated] Save a professional already linked to one child",
+        "tags": [
+          "Specialists"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The professional as the family refers to them, e.g. Dra. Fernanda Lima"
+                  },
+                  "specialty": {
+                    "type": "string",
+                    "description": "What they do, e.g. Pediatria. Free text, see GET /specialties"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "How to reach them. Stored as typed"
+                  },
+                  "babyIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "description": "Children this professional looks after. Omit or send [] for none — a private entry"
+                  },
+                  "sharedWithUserIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "description": "Guardians who should also see this entry. Restricted to people who already share a child with you"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "babyId",
+            "required": true
+          }
+        ],
+        "deprecated": true,
+        "responses": {
+          "201": {
+            "description": "A professional who looks after this family. Belongs to the account, not to one child",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Who created it. Only this person can edit or remove it"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "specialty": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "babyIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "sharedWithUserIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "babyId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "name",
+                    "specialty",
+                    "phone",
+                    "babyIds",
+                    "sharedWithUserIds",
+                    "babyId",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false,
+                  "description": "A professional who looks after this family. Belongs to the account, not to one child"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/babies/{babyId}/specialists/{specialistId}": {
+      "patch": {
+        "summary": "[Deprecated] Update a professional",
+        "tags": [
+          "Specialists"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "specialty": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "phone": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "babyIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "sharedWithUserIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
             "name": "babyId",
             "required": true
           },
@@ -5944,6 +6541,212 @@
             "required": true
           }
         ],
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "A professional who looks after this family. Belongs to the account, not to one child",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Who created it. Only this person can edit or remove it"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "specialty": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "babyIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "sharedWithUserIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "babyId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "name",
+                    "specialty",
+                    "phone",
+                    "babyIds",
+                    "sharedWithUserIds",
+                    "babyId",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false,
+                  "description": "A professional who looks after this family. Belongs to the account, not to one child"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "[Deprecated] Remove a professional",
+        "tags": [
+          "Specialists"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "babyId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "specialistId",
+            "required": true
+          }
+        ],
+        "deprecated": true,
         "responses": {
           "204": {
             "description": "Specialist removed successfully",
