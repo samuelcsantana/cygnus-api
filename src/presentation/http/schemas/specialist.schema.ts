@@ -8,17 +8,6 @@ export const specialistListQuerystringSchema = z.object({
   babyId: z.string().uuid().optional().describe('Narrows the list to the professionals linked to this child'),
 });
 
-/** @deprecated Params das rotas por criança, mantidas como ponte. */
-export const specialistParamsSchema = z.object({
-  babyId: z.string().uuid(),
-});
-
-/** @deprecated Idem. */
-export const specialistIdParamsSchema = z.object({
-  babyId: z.string().uuid(),
-  specialistId: z.string().uuid(),
-});
-
 // Free text, and no format check on the phone: a number can be a landline, a mobile, a clinic
 // switchboard with an extension, or one written with the country code — and this is the field
 // somebody reaches for at 3am. Refusing a real number to enforce a shape would be the one failure
@@ -57,13 +46,6 @@ export const specialistResponseSchema = z
     phone: z.string().nullable(),
     babyIds: z.array(z.string().uuid()),
     sharedWithUserIds: z.array(z.string().uuid()),
-    /**
-     * @deprecated Espelho da primeira criança vinculada, para o front que ainda lê `babyId`.
-     *
-     * Sai junto com as rotas por criança. Um profissional ligado a nenhuma criança devolve `null`
-     * aqui, e o front antigo simplesmente não o mostra — o que é melhor do que quebrar o parse.
-     */
-    babyId: z.string().uuid().nullable(),
     createdAt: z.string().datetime(),
   })
   .describe('A professional who looks after this family. Belongs to the account, not to one child');
