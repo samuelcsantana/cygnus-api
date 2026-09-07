@@ -103,6 +103,22 @@ export class EmailService implements ReminderEmailSender {
     });
   }
 
+  async sendAccountDeletionCodeEmail(to: string, code: string): Promise<void> {
+    await this.send({
+      to,
+      subject: `${code} é o seu código para excluir a conta do Ninho`,
+      html: verificationCodeHtml({
+        heading: 'Excluir sua conta',
+        intro: 'Use o código abaixo para confirmar a exclusão da sua conta do Ninho.',
+        code,
+        footer:
+          'Excluir a conta apaga também o histórico das crianças — vacinas, consultas, marcos e medidas — e não tem ' +
+          'volta. O código vale por 10 minutos e só pode ser usado uma vez. Se não foi você que pediu, ignore este ' +
+          'e-mail: nada é apagado sem o código.',
+      }),
+    });
+  }
+
   async sendPasswordResetCodeEmail(to: string, code: string): Promise<void> {
     await this.send({
       to,

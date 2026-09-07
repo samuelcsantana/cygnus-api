@@ -4,7 +4,12 @@
  * code mailed for one flow can never be spent on the other — a reset code is a password change,
  * a passwordless code is only a login.
  */
-export type VerificationCodePurpose = 'passwordless' | 'password-reset';
+/**
+ * Codes are scoped to what they may do, and the scoping is the security property: a code mailed to
+ * sign somebody in must never be spendable on deleting their account. Adding a purpose here is
+ * adding a new thing a mailed code can authorise — do it deliberately.
+ */
+export type VerificationCodePurpose = 'passwordless' | 'password-reset' | 'account-deletion';
 
 /**
  * Why a code was rejected. The caller maps every failing value to the same client-facing error
