@@ -28,8 +28,9 @@ export interface RequestVerificationCodeInput {
  * sign-in and password reset because the logic is identical — only the purpose the code is scoped
  * to and the e-mail template differ, both injected.
  *
- * It resolves successfully in every case, including an address with no account and an address that
- * has asked too often. The caller must not be able to tell those apart from the outside: an
+ * It resolves successfully in every case, including an address that has asked too often — and,
+ * when `issueForUnknownEmail` is set, an address with no account gets a real code rather than
+ * silence, because for passwordless sign-in that code is what creates the account. The caller must not be able to tell those apart from the outside: an
  * endpoint that answers differently for a registered e-mail is a way to test whether someone has
  * an account here, and this is a health app — the mere fact that an address is registered is
  * something worth protecting.
@@ -47,6 +48,19 @@ export class RequestVerificationCodeUseCase {
      * and fails in the one way it is designed never to reveal: a 200 with nothing behind it.
      */
     private readonly logIssuedCode: boolean = false,
+    /**
+     * Whether an address with no account still gets a code.
+     *
+     * True for passwordless sign-in, where the code is what creates the account
+     * (see VerifyPasswordlessCodeUseCase) — and false for password reset, where
+     * there is no password to reset and creating an account from a "forgot my
+     * password" screen would be answering a question nobody asked.
+     *
+     * Neither setting is visible from outside: both purposes answer 200 under
+     * the same time floor. What differs is whether an e-mail arrives, which is
+     * exactly what already differed for both flows before this existed.
+     */
+    private readonly issueForUnknownEmail: boolean = false,
   ) {}
 
   async execute(input: RequestVerificationCodeInput): Promise<void> {
@@ -74,8 +88,9 @@ export class RequestVerificationCodeUseCase {
     const email = input.email.trim().toLowerCase();
     const user = await this.userRepository.findByEmail(email);
 
-    if (!user) {
-      // No account: no code, no mail, no trace of the difference in the response.
+    if (!user && !this.issueForUnknownEmail) {
+      // No account and no signing up from here: no code, no mail, no trace of
+      // the difference in the response.
       logger.info({ purpose: this.purpose }, 'auth.verification_code_requested_for_unknown_email');
       return;
     }
@@ -83,7 +98,7 @@ export class RequestVerificationCodeUseCase {
     const code = await this.verificationCodeService.issue(this.purpose, email);
 
     if (!code) {
-      logger.warn({ purpose: this.purpose, userId: user.id }, 'auth.verification_code_request_throttled');
+      logger.warn({ purpose: this.purpose, userId: user?.id }, 'auth.verification_code_request_throttled');
       return;
     }
 
@@ -100,8 +115,8 @@ export class RequestVerificationCodeUseCase {
     // being down is not something the caller can act on, and a 500 for a real address beside a 200
     // for an unknown one is that same oracle wearing a different number. The .catch is what keeps
     // an unawaited rejection from becoming an unhandled one.
-    void this.sendCodeEmail(user.email, code).catch((error: unknown) => {
-      logger.error({ err: error, purpose: this.purpose, userId: user.id }, 'auth.verification_code_email_failed');
+    void this.sendCodeEmail(user?.email ?? email, code).catch((error: unknown) => {
+      logger.error({ err: error, purpose: this.purpose, userId: user?.id }, 'auth.verification_code_email_failed');
     });
   }
 }

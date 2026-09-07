@@ -360,6 +360,109 @@ describe('Auth routes', () => {
       expect(meResponse.json().email).toBe(email);
     });
 
+    /**
+     * O que a mudança de 07/09/2026 comprou: até então, quem nunca se cadastrou recebia o mesmo
+     * "enviamos um código" que todo mundo e esperava por um e-mail que o servidor nunca mandava.
+     * A resposta uniforme escondia a enumeração e mentia para o usuário honesto ao mesmo tempo.
+     */
+    it('creates the account when an address with no account proves it holds the mailbox', async () => {
+      const email = uniqueEmail('signup-by-code');
+
+      // Nenhum registro antes: a conta nasce do código.
+      const code = await issueCode('passwordless', email);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/verify',
+        payload: { email, code },
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      const meResponse = await app.inject({
+        method: 'GET',
+        url: '/auth/me',
+        headers: { cookie: extractCookieHeader(response.headers['set-cookie']) },
+      });
+
+      expect(meResponse.statusCode).toBe(200);
+      expect(meResponse.json().email).toBe(email);
+      // Sem nome: pedi-lo antes do código seria pedi-lo só a endereço desconhecido, que é o
+      // oráculo de enumeração de volta. Quem pergunta é o front, depois da sessão existir.
+      expect(meResponse.json().name).toBe('');
+    });
+
+    it('signs the same account in the second time, instead of creating another', async () => {
+      const email = uniqueEmail('signup-once');
+
+      const firstCode = await issueCode('passwordless', email);
+      const first = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/verify',
+        payload: { email, code: firstCode },
+      });
+
+      const secondCode = await issueCode('passwordless', email);
+      const second = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/verify',
+        payload: { email, code: secondCode },
+      });
+
+      expect(first.statusCode).toBe(200);
+      expect(second.statusCode).toBe(200);
+
+      // Mesma conta, e não duas linhas com o mesmo endereço — o `email` é único no banco, então
+      // uma segunda criação estouraria aqui em vez de passar despercebida.
+      const me = await app.inject({
+        method: 'GET',
+        url: '/auth/me',
+        headers: { cookie: extractCookieHeader(second.headers['set-cookie']) },
+      });
+      expect(me.json().email).toBe(email);
+    });
+
+    /**
+     * O custo novo: até 07/09 o app nunca mandava e-mail para endereço sem conta, e agora manda.
+     * O teto é o mesmo de sempre — 5 pedidos por 15 minutos **por endereço** — e este teste existe
+     * porque ele passou a valer para um caminho onde antes não valia.
+     */
+    it('throttles an unknown address exactly like a registered one', async () => {
+      const email = uniqueEmail('signup-throttle');
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/auth/passwordless/request',
+          payload: { email },
+        });
+        expect(response.statusCode).toBe(200);
+      }
+
+      // O sexto não gera código. A resposta do endpoint continua 200 — é o que o chamador vê, e
+      // é justamente o que não pode mudar.
+      expect(await verificationCodeService.issue('passwordless', email)).toBeNull();
+    });
+
+    /**
+     * O cadastro por código vale para "entrar sem senha" e para mais nada. Numa tela de "esqueci
+     * minha senha" não há senha para redefinir, e criar a conta ali responderia a uma pergunta que
+     * ninguém fez.
+     */
+    it('does not sign anybody up through the password-reset flow', async () => {
+      const email = uniqueEmail('reset-no-signup');
+
+      await app.inject({ method: 'POST', url: '/auth/password-reset/request', payload: { email } });
+
+      // Se a conta tivesse sido criada, o registro abaixo bateria em e-mail já em uso.
+      const registerResponse = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: { email, password: 'S3cur3-Password', name: 'Jane Doe' },
+      });
+
+      expect(registerResponse.statusCode).toBe(201);
+    });
+
     it('rejects a wrong code with 401, and burns the real code after it is used once', async () => {
       const email = uniqueEmail('single-use');
       await register(email);

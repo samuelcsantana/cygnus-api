@@ -11,7 +11,7 @@ function toDomain(record: {
   createdAt: Date;
   sessionVersion: number;
 }): User {
-  return User.create({
+  return User.fromPersistence({
     id: record.id,
     email: record.email,
     passwordHash: record.passwordHash,
