@@ -735,7 +735,7 @@
         "tags": [
           "Auth"
         ],
-        "description": "Mails a 6-digit code that can be exchanged for a session at /auth/passwordless/verify. Always answers 200 with the same body, including for an address that has no account, so the endpoint cannot be used to find out which e-mails are registered. The code is valid for 10 minutes, is single-use, and allows 5 attempts.",
+        "description": "Mails a 6-digit code that can be exchanged for a session at /auth/passwordless/verify. An address with no account gets a code too, and using it creates the account — so this endpoint signs people up as well as in, and answering 200 with the same body for every address is true rather than merely uniform. The code is valid for 10 minutes, is single-use, allows 5 attempts, and 5 codes per address per 15 minutes.",
         "requestBody": {
           "required": true,
           "content": {
@@ -875,7 +875,7 @@
         "tags": [
           "Auth"
         ],
-        "description": "Consumes the code mailed by /auth/passwordless/request and sets the same session cookies /auth/login does. A wrong, expired, already-used or over-attempted code — and an address with no account — all answer 401 with the same message, so nothing can be inferred from the failure.",
+        "description": "Consumes the code mailed by /auth/passwordless/request and sets the same session cookies /auth/login does. Creates the account when the address has none — this is where sign-up happens, never at the request step, so a mistyped address leaves no row behind. A new account has no name (the client asks after sign-in) and no usable password until its owner sets one through the reset flow. A wrong, expired, already-used or over-attempted code — and an address with no account — all answer 401 with the same message, so nothing can be inferred from the failure.",
         "requestBody": {
           "required": true,
           "content": {

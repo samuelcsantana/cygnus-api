@@ -59,6 +59,11 @@ export async function authRoutes(app: App) {
     'passwordless',
     (to, code) => emailService.sendPasswordlessCodeEmail(to, code),
     logIssuedCode,
+    // An unknown address gets a code here, and that code creates the account when it is used.
+    // Password reset below stays as it was: there is no password to reset on an account that does
+    // not exist, and signing someone up from a "forgot my password" screen answers a question
+    // nobody asked.
+    true,
   );
   const requestPasswordResetCodeUseCase = new RequestVerificationCodeUseCase(
     userRepository,
@@ -71,6 +76,7 @@ export async function authRoutes(app: App) {
     userRepository,
     verificationCodeService,
     tokenService,
+    passwordHasher,
   );
   const resetPasswordUseCase = new ResetPasswordUseCase(
     userRepository,
@@ -269,7 +275,17 @@ export async function authRoutes(app: App) {
   // which only runs on authenticated routes, and these are public exactly like /auth/login.
   // ---------------------------------------------------------------------------------------------
 
-  const ASSISTED_REQUEST_ACCEPTED = 'If that email has an account, a code is on its way';
+  /**
+   * Two messages, because the two flows now promise different things — and neither varies by
+   * address, which is the property that matters.
+   *
+   * Passwordless mails every address, so the hedge would be a lie in the other direction: the code
+   * really is on its way, and the account is created when it comes back. Password reset still has
+   * nothing to send an unknown address, so its message stays conditional, which is what keeps it
+   * from answering "does this address have an account here".
+   */
+  const PASSWORDLESS_REQUEST_ACCEPTED = 'A code is on its way';
+  const RESET_REQUEST_ACCEPTED = 'If that email has an account, a code is on its way';
 
   app.route({
     method: 'POST',
@@ -279,9 +295,10 @@ export async function authRoutes(app: App) {
       tags: ['Auth'],
       summary: 'Request a sign-in code',
       description:
-        'Mails a 6-digit code that can be exchanged for a session at /auth/passwordless/verify. Always answers 200 ' +
-        'with the same body, including for an address that has no account, so the endpoint cannot be used to find ' +
-        'out which e-mails are registered. The code is valid for 10 minutes, is single-use, and allows 5 attempts.',
+        'Mails a 6-digit code that can be exchanged for a session at /auth/passwordless/verify. An address with ' +
+        'no account gets a code too, and using it creates the account — so this endpoint signs people up as well ' +
+        'as in, and answering 200 with the same body for every address is true rather than merely uniform. The ' +
+        'code is valid for 10 minutes, is single-use, allows 5 attempts, and 5 codes per address per 15 minutes.',
       body: assistedRequestBodySchema,
       response: {
         200: authSuccessResponseSchema,
@@ -293,7 +310,7 @@ export async function authRoutes(app: App) {
     handler: async (request, reply) => {
       await requestPasswordlessCodeUseCase.execute(request.body);
 
-      return reply.status(200).send({ status: 'ok', message: ASSISTED_REQUEST_ACCEPTED });
+      return reply.status(200).send({ status: 'ok', message: PASSWORDLESS_REQUEST_ACCEPTED });
     },
   });
 
@@ -306,6 +323,9 @@ export async function authRoutes(app: App) {
       summary: 'Exchange a sign-in code for a session',
       description:
         'Consumes the code mailed by /auth/passwordless/request and sets the same session cookies /auth/login does. ' +
+        'Creates the account when the address has none — this is where sign-up happens, never at the request step, ' +
+        'so a mistyped address leaves no row behind. A new account has no name (the client asks after sign-in) and ' +
+        'no usable password until its owner sets one through the reset flow. ' +
         'A wrong, expired, already-used or over-attempted code — and an address with no account — all answer 401 ' +
         'with the same message, so nothing can be inferred from the failure.',
       body: passwordlessVerifyBodySchema,
@@ -365,7 +385,7 @@ export async function authRoutes(app: App) {
     handler: async (request, reply) => {
       await requestPasswordResetCodeUseCase.execute(request.body);
 
-      return reply.status(200).send({ status: 'ok', message: ASSISTED_REQUEST_ACCEPTED });
+      return reply.status(200).send({ status: 'ok', message: RESET_REQUEST_ACCEPTED });
     },
   });
 
