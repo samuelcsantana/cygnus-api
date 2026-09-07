@@ -59,7 +59,7 @@ describe('Baby routes', () => {
         method: 'POST',
         url: '/babies',
         headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { name: 'Alice', birthDate: '2024-03-10', gender: 'FEMALE', allergies: ['lactose'] },
+        payload: { name: 'Alice', birthDate: '2024-03-10', sexAtBirth: 'FEMALE', allergies: ['lactose'] },
       });
 
       expect(response.statusCode).toBe(201);
@@ -68,7 +68,7 @@ describe('Baby routes', () => {
       expect(body).toMatchObject({
         name: 'Alice',
         birthDate: '2024-03-10',
-        gender: 'FEMALE',
+        sexAtBirth: 'FEMALE',
         allergies: ['lactose'],
       });
       expect(body.id).toBeDefined();
@@ -83,7 +83,7 @@ describe('Baby routes', () => {
         method: 'POST',
         url: '/babies',
         headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { name: 'Future Baby', birthDate: futureDate, gender: 'MALE' },
+        payload: { name: 'Future Baby', birthDate: futureDate, sexAtBirth: 'MALE' },
       });
 
       expect(response.statusCode).toBe(400);
@@ -93,7 +93,7 @@ describe('Baby routes', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/babies',
-        payload: { name: 'Alice', birthDate: '2024-03-10', gender: 'FEMALE' },
+        payload: { name: 'Alice', birthDate: '2024-03-10', sexAtBirth: 'FEMALE' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -106,7 +106,7 @@ describe('Baby routes', () => {
         method: 'POST',
         url: '/babies',
         headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { name: 'Alice', birthDate: '2024-03-10', gender: 'FEMALE', avatarColor: '#2A9D8F' },
+        payload: { name: 'Alice', birthDate: '2024-03-10', sexAtBirth: 'FEMALE', avatarColor: '#2A9D8F' },
       });
 
       expect(response.statusCode).toBe(201);
@@ -120,7 +120,7 @@ describe('Baby routes', () => {
         method: 'POST',
         url: '/babies',
         headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { name: 'Alice', birthDate: '2024-03-10', gender: 'FEMALE', avatarColor: 'teal' },
+        payload: { name: 'Alice', birthDate: '2024-03-10', sexAtBirth: 'FEMALE', avatarColor: 'teal' },
       });
 
       expect(response.statusCode).toBe(400);
@@ -136,7 +136,7 @@ describe('Baby routes', () => {
         method: 'POST',
         url: '/babies',
         headers: { cookie: ownerCookie, 'x-csrf-token': ownerCsrfToken },
-        payload: { name: 'Bob', birthDate: '2023-06-01', gender: 'MALE' },
+        payload: { name: 'Bob', birthDate: '2023-06-01', sexAtBirth: 'MALE' },
       });
 
       const babyId = createResponse.json().id;
@@ -189,7 +189,7 @@ describe('Baby routes', () => {
         method: 'POST',
         url: '/babies',
         headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { name: 'Carla', birthDate: '2022-11-20', gender: 'FEMALE' },
+        payload: { name: 'Carla', birthDate: '2022-11-20', sexAtBirth: 'FEMALE' },
       });
       const babyId = createResponse.json().id;
 
@@ -226,25 +226,6 @@ describe('Baby routes', () => {
       expect(response.json().sexAtBirth).toBeNull();
     });
 
-    /**
-     * A ponte depreciada, e a razão de ela existir: o front que está em produção no momento do
-     * deploy manda e lê `gender`. Sem isto, o primeiro cadastro feito entre os dois deploys perderia
-     * o valor em silêncio, e toda tela que carrega crianças falharia o parse.
-     */
-    it('aceita o `gender` antigo e devolve os dois campos', async () => {
-      const { cookie, csrfToken } = await registerAndLogin('parent-legacy-gender@example.com');
-
-      const response = await app.inject({
-        method: 'POST',
-        url: '/babies',
-        headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { name: 'Legado', birthDate: '2024-01-01', gender: 'MALE' },
-      });
-
-      expect(response.statusCode).toBe(201);
-      expect(response.json()).toMatchObject({ sexAtBirth: 'MALE', gender: 'MALE' });
-    });
-
     it('stores the health plan on creation and clears just the member number', async () => {
       const { cookie, csrfToken } = await registerAndLogin('parent-health-plan@example.com');
 
@@ -255,7 +236,7 @@ describe('Baby routes', () => {
         payload: {
           name: 'Elis',
           birthDate: '2023-04-02',
-          gender: 'FEMALE',
+          sexAtBirth: 'FEMALE',
           healthPlanName: 'Unimed',
           healthPlanNumber: '0123 4567 8901 2345',
         },
@@ -322,7 +303,7 @@ describe('Baby routes', () => {
         method: 'POST',
         url: '/babies',
         headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { name: 'Dora', birthDate: '2022-11-20', gender: 'FEMALE' },
+        payload: { name: 'Dora', birthDate: '2022-11-20', sexAtBirth: 'FEMALE' },
       });
       const babyId = createResponse.json().id;
 
@@ -361,7 +342,7 @@ describe('Baby routes', () => {
         method: 'POST',
         url: '/babies',
         headers: { cookie, 'x-csrf-token': csrfToken },
-        payload: { name: 'Dana', birthDate: '2023-02-14', gender: 'FEMALE' },
+        payload: { name: 'Dana', birthDate: '2023-02-14', sexAtBirth: 'FEMALE' },
       });
       const babyId = createResponse.json().id;
 

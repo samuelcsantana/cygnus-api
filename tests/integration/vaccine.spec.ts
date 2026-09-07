@@ -72,7 +72,7 @@ describe('Vaccine routes', () => {
       method: 'POST',
       url: '/babies',
       headers: { cookie, 'x-csrf-token': csrfToken },
-      payload: { name: 'Baby', birthDate, gender: 'FEMALE' },
+      payload: { name: 'Baby', birthDate, sexAtBirth: 'FEMALE' },
     });
 
     return response.json().id;

@@ -18,14 +18,6 @@ export const createBabyBodySchema = z.object({
   sexAtBirth: sexAtBirthSchema
     .optional()
     .describe('Sex at birth, a clinical variable. Optional: absent means not informed'),
-  /**
-   * @deprecated Ponte de compatibilidade, e temporária.
-   *
-   * O front que está em produção no momento deste deploy ainda manda e lê `gender`. Sem aceitá-lo
-   * aqui, o primeiro cadastro feito entre o deploy da API e o do front perderia o valor em
-   * silêncio. Sai assim que o front novo estiver no ar.
-   */
-  gender: sexAtBirthSchema.optional(),
   bloodType: bloodTypeSchema.optional(),
   allergies: z.array(z.string().min(1)).optional().describe('Known allergies, e.g. lactose, penicillin'),
   healthPlanName: z.string().min(1).optional().describe('Health insurance plan, e.g. Unimed'),
@@ -43,8 +35,6 @@ export const updateBabyBodySchema = z
     name: z.string().min(1).optional(),
     birthDate: dateOnlySchema.optional(),
     sexAtBirth: sexAtBirthSchema.nullable().optional(),
-    /** @deprecated Mesma ponte do `create`. */
-    gender: sexAtBirthSchema.nullable().optional(),
     bloodType: bloodTypeSchema.nullable().optional(),
     allergies: z.array(z.string().min(1)).optional(),
     healthPlanName: z.string().min(1).nullable().optional(),
@@ -61,14 +51,6 @@ export const babyResponseSchema = z
     name: z.string(),
     birthDate: dateOnlySchema,
     sexAtBirth: sexAtBirthSchema.nullable(),
-    /**
-     * @deprecated Espelho de `sexAtBirth`, mantido por uma versão.
-     *
-     * É esta linha que impede uma queda: o front em produção exige `gender` na resposta e falha o
-     * parse sem ele — o que derrubaria toda tela que carrega crianças no intervalo entre os dois
-     * deploys. Remover junto com o `gender` de entrada.
-     */
-    gender: sexAtBirthSchema.nullable(),
     bloodType: z.string().nullable(),
     allergies: z.array(z.string()),
     healthPlanName: z.string().nullable(),
