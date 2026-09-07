@@ -1561,7 +1561,7 @@
         "tags": [
           "Users"
         ],
-        "description": "Permanently deletes the account after confirming currentPassword, cascading to all owned babies, their vaccine records, appointments, milestones and notifications. Clears the session cookies.",
+        "description": "Permanently deletes the account, cascading to all owned babies, their vaccine records, appointments, milestones and notifications, and clears the session cookies. Confirmed by **either** currentPassword or a code from POST /users/me/deletion-code — never both. The code path exists because an account created by passwordless sign-in has no usable password, and would otherwise have no way to delete itself.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1572,12 +1572,14 @@
                   "currentPassword": {
                     "type": "string",
                     "minLength": 1,
-                    "description": "The user's current password, required to confirm account deletion"
+                    "description": "The user's current password, one of the two ways to confirm account deletion"
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$",
+                    "description": "A 6-digit code mailed by POST /users/me/deletion-code, the other way to confirm"
                   }
                 },
-                "required": [
-                  "currentPassword"
-                ],
                 "additionalProperties": false
               }
             }
@@ -2046,6 +2048,125 @@
             }
           },
           "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/me/deletion-code": {
+      "post": {
+        "summary": "Mail a code that confirms deleting this account",
+        "tags": [
+          "Users"
+        ],
+        "description": "Mails a 6-digit code to the address on the account, spendable only on DELETE /users/me. The address is read from the session, never from the request, so the caller cannot choose whose deletion they are confirming. Answers 200 even when the address is throttled — the caller has nothing to do differently.",
+        "responses": {
+          "200": {
+            "description": "Access and refresh tokens are set as HTTP-only cookies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Access and refresh tokens are set as HTTP-only cookies"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "429": {
             "description": "The request could not be completed",
             "content": {
               "application/json": {

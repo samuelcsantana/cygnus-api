@@ -1,7 +1,10 @@
+import { randomUUID } from 'node:crypto';
+
 import { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
+import { verificationCodeService } from '../../src/infrastructure/security/verification-code-service.instance';
 
 describe('User profile routes', () => {
   let app: FastifyInstance;
@@ -128,6 +131,100 @@ describe('User profile routes', () => {
       });
 
       expect(loginResponse.statusCode).toBe(200);
+    });
+
+    /**
+     * O caso que motivou a rota do código: conta criada por "entrar sem senha" tem hash aleatório,
+     * então **nenhuma senha é a certa** e ela ficava trancada para fora da própria exclusão.
+     * Medido antes de existir: 400 "Incorrect current password" numa conta que tinha todo direito
+     * de ser apagada.
+     */
+    it('deletes an account that has no usable password, with a mailed code', async () => {
+      const email = `delete-by-code-${randomUUID()}@example.com`;
+
+      // Nasce do código, sem senha nenhuma.
+      const signInCode = (await verificationCodeService.issue('passwordless', email))!;
+      const session = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/verify',
+        payload: { email, code: signInCode },
+      });
+      const cookie = extractCookieHeader(session.headers['set-cookie']);
+      const csrfToken = extractCsrfToken(session.headers['set-cookie']);
+
+      const requested = await app.inject({
+        method: 'POST',
+        url: '/users/me/deletion-code',
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+      expect(requested.statusCode).toBe(200);
+
+      const deletionCode = (await verificationCodeService.issue('account-deletion', email))!;
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/users/me',
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { code: deletionCode },
+      });
+
+      expect(response.statusCode).toBe(204);
+      expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
+    });
+
+    /**
+     * O escopo do código é a propriedade de segurança: um código mandado para **entrar** não pode
+     * ser gasto para **apagar**. É a mesma regra que o teste da rota de reset já cobre do outro lado.
+     */
+    it('refuses a sign-in code on the deletion endpoint', async () => {
+      const email = `delete-wrong-purpose-${randomUUID()}@example.com`;
+      const { cookie, csrfToken } = await registerAndLogin(email);
+
+      const signInCode = (await verificationCodeService.issue('passwordless', email))!;
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/users/me',
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { code: signInCode },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(await prisma.user.findUnique({ where: { email } })).not.toBeNull();
+    });
+
+    it('refuses a wrong code, and leaves the account standing', async () => {
+      const email = `delete-wrong-code-${randomUUID()}@example.com`;
+      const { cookie, csrfToken } = await registerAndLogin(email);
+      await verificationCodeService.issue('account-deletion', email);
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/users/me',
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { code: '000000' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(await prisma.user.findUnique({ where: { email } })).not.toBeNull();
+    });
+
+    /**
+     * Nem zero provas nem duas. Corpo vazio apagando conta seria o pior defeito possível aqui, e
+     * mandar as duas é um chamador que não decidiu o que está provando.
+     */
+    it('refuses both proofs at once', async () => {
+      const email = `delete-both-${randomUUID()}@example.com`;
+      const { cookie, csrfToken } = await registerAndLogin(email);
+      const code = (await verificationCodeService.issue('account-deletion', email))!;
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/users/me',
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { currentPassword: 'S3cur3-Password', code },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(await prisma.user.findUnique({ where: { email } })).not.toBeNull();
     });
 
     it('rejects a request without an access_token cookie with 401', async () => {

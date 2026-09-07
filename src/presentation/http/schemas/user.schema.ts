@@ -72,9 +72,33 @@ export const updateProfileBodySchema = z
     }
   });
 
-export const deleteAccountBodySchema = z.object({
-  currentPassword: z.string().min(1).describe("The user's current password, required to confirm account deletion"),
-});
+/**
+ * One proof of intent, and exactly one.
+ *
+ * `code` exists because an account created by passwordless sign-in has no usable password — its
+ * hash is random bytes — so the password path locks it out of its own deletion for good. Requiring
+ * both would be theatre: whoever holds the mailbox can already take the account over by signing in
+ * without a password.
+ *
+ * Refused when neither is given (an empty body must not delete anything) and when both are, which
+ * is a caller that has not decided what it is proving.
+ */
+export const deleteAccountBodySchema = z
+  .object({
+    currentPassword: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("The user's current password, one of the two ways to confirm account deletion"),
+    code: z
+      .string()
+      .regex(/^\d{6}$/)
+      .optional()
+      .describe('A 6-digit code mailed by POST /users/me/deletion-code, the other way to confirm'),
+  })
+  .refine((body) => (body.currentPassword === undefined) !== (body.code === undefined), {
+    message: 'Provide either currentPassword or code',
+  });
 
 export type UpdateProfileBody = z.infer<typeof updateProfileBodySchema>;
 export type DeleteAccountBody = z.infer<typeof deleteAccountBodySchema>;
