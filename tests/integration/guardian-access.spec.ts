@@ -66,7 +66,7 @@ describe('Guardian-based access control (IDOR prevention)', () => {
       method: 'POST',
       url: '/babies',
       headers: { cookie, 'x-csrf-token': csrfToken },
-      payload: { name: 'Baby', birthDate: '2024-01-01', gender: 'FEMALE' },
+      payload: { name: 'Baby', birthDate: '2024-01-01', sexAtBirth: 'FEMALE' },
     });
 
     return response.json().id;

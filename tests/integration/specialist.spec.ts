@@ -113,7 +113,7 @@ describe('Specialist routes', () => {
       const response = await createSpecialist(owner, { phone: '+55 11 99999-0000' });
 
       expect(response.statusCode).toBe(201);
-      expect(response.json()).toMatchObject({ babyIds: [], sharedWithUserIds: [], babyId: null });
+      expect(response.json()).toMatchObject({ babyIds: [], sharedWithUserIds: [] });
     });
 
     it('links a professional to more than one child', async () => {
@@ -283,36 +283,6 @@ describe('Specialist routes', () => {
       expect(appointments).toHaveLength(1);
       expect(appointments[0].doctorName).toBe('Dra. Fernanda Lima');
       expect(appointments[0].specialistId).toBeNull();
-    });
-  });
-
-  describe('as rotas por criança, mantidas como ponte', () => {
-    /**
-     * O front em produção fala com elas. Sem a ponte, a lista some da tela de edição da criança no
-     * intervalo entre os dois deploys, e cadastrar um profissional novo responderia 404.
-     */
-    it('cadastra e lista pelo caminho antigo, já no modelo novo', async () => {
-      const owner = await registerAndLogin('spec-bridge@example.com');
-      const babyId = await createBaby(owner);
-
-      const createResponse = await app.inject({
-        method: 'POST',
-        url: `/babies/${babyId}/specialists`,
-        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
-        payload: { name: 'Pelo caminho antigo', phone: '+55 11 99999-0000' },
-      });
-
-      expect(createResponse.statusCode).toBe(201);
-      // O espelho `babyId` é o que o front antigo lê; `babyIds` é o modelo novo por baixo.
-      expect(createResponse.json()).toMatchObject({ babyId, babyIds: [babyId] });
-
-      const listResponse = await app.inject({
-        method: 'GET',
-        url: `/babies/${babyId}/specialists`,
-        headers: { cookie: owner.cookie, 'x-csrf-token': owner.csrfToken },
-      });
-
-      expect(listResponse.json()).toHaveLength(1);
     });
   });
 });

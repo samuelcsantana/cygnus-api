@@ -130,7 +130,6 @@ export async function userRoutes(app: App) {
               name: baby.name,
               birthDate: baby.birthDate.toISOString().slice(0, 10),
               sexAtBirth: baby.sexAtBirth,
-              gender: baby.sexAtBirth,
               bloodType: baby.bloodType,
               allergies: baby.allergies,
               healthPlanName: baby.healthPlanName,

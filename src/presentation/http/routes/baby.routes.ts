@@ -34,7 +34,6 @@ function toResponse(baby: Baby) {
     birthDate: baby.birthDate.toISOString().slice(0, 10),
     sexAtBirth: baby.sexAtBirth,
     // Espelho depreciado — ver o comentário em `babyResponseSchema`.
-    gender: baby.sexAtBirth,
     bloodType: baby.bloodType,
     allergies: baby.allergies,
     healthPlanName: baby.healthPlanName,
@@ -76,10 +75,7 @@ export async function babyRoutes(app: App) {
           userId: request.userId,
           name: request.body.name,
           birthDate: toBirthDate(request.body.birthDate),
-          // `gender` é a ponte depreciada: vale só quando `sexAtBirth` não veio. Comparação com
-          // `undefined` e não `??`, porque `null` aqui é um valor com significado — "limpar" — e o
-          // `??` o trataria como ausência, transformando "prefiro não informar" em "não mexi".
-          sexAtBirth: request.body.sexAtBirth !== undefined ? request.body.sexAtBirth : request.body.gender,
+          sexAtBirth: request.body.sexAtBirth,
           bloodType: request.body.bloodType,
           allergies: request.body.allergies,
           healthPlanName: request.body.healthPlanName,
@@ -175,10 +171,7 @@ export async function babyRoutes(app: App) {
           requestingUserId: request.userId,
           name: request.body.name,
           birthDate: request.body.birthDate ? toBirthDate(request.body.birthDate) : undefined,
-          // `gender` é a ponte depreciada: vale só quando `sexAtBirth` não veio. Comparação com
-          // `undefined` e não `??`, porque `null` aqui é um valor com significado — "limpar" — e o
-          // `??` o trataria como ausência, transformando "prefiro não informar" em "não mexi".
-          sexAtBirth: request.body.sexAtBirth !== undefined ? request.body.sexAtBirth : request.body.gender,
+          sexAtBirth: request.body.sexAtBirth,
           bloodType: request.body.bloodType,
           allergies: request.body.allergies,
           healthPlanName: request.body.healthPlanName,
