@@ -28,8 +28,17 @@ model User {
   legalAcceptances          LegalAcceptance[]
   specialists               Specialist[]
   specialistShares          SpecialistShare[]
+  googleIdentity            GoogleIdentity?
 
   @@map("users")
+}
+
+model GoogleIdentity {
+  subject String @id
+  userId  String @unique @map("user_id")
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("google_identities")
 }
 
 // O nome diz o que o dado é: **sexo ao nascer**, variável clínica, e não identidade de gênero.

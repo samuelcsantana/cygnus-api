@@ -21,6 +21,9 @@ const envSchema = z.object({
   // — EmailService no-ops (logs a warning) instead of throwing when these are unset.
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.union([z.string().url(), z.literal('')]).optional(),
 });
 
 function loadEnv() {
@@ -34,6 +37,17 @@ function loadEnv() {
   const secureCookies = parsed.data.SECURE_COOKIES
     ? parsed.data.SECURE_COOKIES === 'true'
     : parsed.data.NODE_ENV === 'production';
+
+  const googleValues = [parsed.data.GOOGLE_CLIENT_ID, parsed.data.GOOGLE_CLIENT_SECRET, parsed.data.GOOGLE_REDIRECT_URI];
+  if (googleValues.some(Boolean) && !googleValues.every(Boolean)) {
+    throw new Error('Google sign-in requires GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI together');
+  }
+  if (parsed.data.GOOGLE_REDIRECT_URI) {
+    const callback = new URL(parsed.data.GOOGLE_REDIRECT_URI);
+    if (callback.protocol !== 'https:' && !(callback.protocol === 'http:' && callback.hostname === 'localhost')) {
+      throw new Error('GOOGLE_REDIRECT_URI requires HTTPS except on localhost');
+    }
+  }
 
   return { ...parsed.data, secureCookies };
 }

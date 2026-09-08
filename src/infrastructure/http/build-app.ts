@@ -21,6 +21,7 @@ import { MILESTONE_PHOTOS_DIR, UPLOADS_DIR } from '../../shared/config/uploads';
 import { healthRoutes } from '../../presentation/http/routes/health.routes';
 import { publicRoutes, PUBLIC_ROUTE_PREFIX } from '../../presentation/http/routes/public.routes';
 import { authRoutes } from '../../presentation/http/routes/auth.routes';
+import { googleAuthRoutes } from '../../presentation/http/routes/google-auth.routes';
 import { userRoutes } from '../../presentation/http/routes/user.routes';
 import { babyRoutes } from '../../presentation/http/routes/baby.routes';
 import { vaccineRoutes } from '../../presentation/http/routes/vaccine.routes';
@@ -149,6 +150,7 @@ export async function buildApp() {
   await app.register(publicRoutes);
   await app.register(healthRoutes);
   await app.register(authRoutes);
+  await app.register(googleAuthRoutes);
   await app.register(userRoutes);
   await app.register(babyRoutes);
   await app.register(vaccineRoutes);
