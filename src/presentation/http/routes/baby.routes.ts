@@ -28,6 +28,7 @@ function toBirthDate(dateOnly: string): Date {
 
 function toResponse(baby: Baby) {
   return {
+    measurements: baby.measurements.map((measurement) => ({ ...measurement, measuredOn: measurement.measuredOn.toISOString().slice(0, 10) })),
     id: baby.id,
     userId: baby.userId,
     name: baby.name,
@@ -72,6 +73,7 @@ export async function babyRoutes(app: App) {
     handler: async (request, reply) => {
       try {
         const baby = await createBabyUseCase.execute({
+          measurement: request.body.measurement,
           userId: request.userId,
           name: request.body.name,
           birthDate: toBirthDate(request.body.birthDate),
@@ -167,6 +169,7 @@ export async function babyRoutes(app: App) {
     handler: async (request, reply) => {
       try {
         const baby = await updateBabyUseCase.execute({
+          measurement: request.body.measurement,
           babyId: request.params.babyId,
           requestingUserId: request.userId,
           name: request.body.name,

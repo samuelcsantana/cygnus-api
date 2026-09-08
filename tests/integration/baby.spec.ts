@@ -52,6 +52,34 @@ describe('Baby routes', () => {
   }
 
   describe('POST /babies', () => {
+    it('persists dated measurements atomically and appends without replacing history', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('measurements@example.com');
+      const headers = { cookie, 'x-csrf-token': csrfToken };
+      const created = await app.inject({ method: 'POST', url: '/babies', headers,
+        payload: { name: 'Alice', birthDate: '2024-03-10', measurement: { measuredOn: '2024-03-10', weightGrams: 3500 } } });
+      expect(created.statusCode).toBe(201);
+      const baby = created.json();
+      expect(baby.measurements).toEqual([expect.objectContaining({ measuredOn: '2024-03-10', weightGrams: 3500, heightMillimeters: null })]);
+      const updated = await app.inject({ method: 'PATCH', url: `/babies/${baby.id}`, headers,
+        payload: { measurement: { measuredOn: '2024-04-10', heightMillimeters: 550 } } });
+      expect(updated.statusCode).toBe(200);
+      expect(updated.json().measurements).toHaveLength(2);
+      await app.inject({ method: 'PATCH', url: `/babies/${baby.id}`, headers, payload: { name: 'Alice Maria' } });
+      const listed = await app.inject({ method: 'GET', url: '/babies', headers });
+      expect(listed.json()[0].measurements).toHaveLength(2);
+      const invalid = await app.inject({ method: 'PATCH', url: `/babies/${baby.id}`, headers,
+        payload: { name: 'Should not save', measurement: { measuredOn: '2023-01-01', weightGrams: 4000 } } });
+      expect(invalid.statusCode).toBe(400);
+      expect((await prisma.baby.findUniqueOrThrow({ where: { id: baby.id } })).name).toBe('Alice Maria');
+      const intruder = await registerAndLogin('measurement-intruder@example.com');
+      const forbidden = await app.inject({ method: 'PATCH', url: `/babies/${baby.id}`,
+        headers: { cookie: intruder.cookie, 'x-csrf-token': intruder.csrfToken },
+        payload: { measurement: { measuredOn: '2024-04-10', weightGrams: 4000 } } });
+      expect(forbidden.statusCode).toBe(404);
+      await app.inject({ method: 'DELETE', url: `/babies/${baby.id}`, headers });
+      expect(await prisma.babyMeasurement.count({ where: { babyId: baby.id } })).toBe(0);
+    });
+
     it('creates a baby profile owned by the authenticated user', async () => {
       const { cookie, csrfToken } = await registerAndLogin('parent-create@example.com');
 

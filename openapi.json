@@ -218,6 +218,10 @@
                     "name": {
                       "type": "string"
                     },
+                    "avatarUrl": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "emailNotificationsEnabled": {
                       "type": "boolean"
                     },
@@ -230,6 +234,7 @@
                     "id",
                     "email",
                     "name",
+                    "avatarUrl",
                     "emailNotificationsEnabled",
                     "createdAt"
                   ],
@@ -585,6 +590,10 @@
                     "name": {
                       "type": "string"
                     },
+                    "avatarUrl": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "emailNotificationsEnabled": {
                       "type": "boolean",
                       "description": "Whether the user wants to receive reminder emails (vaccines, appointments)"
@@ -598,6 +607,7 @@
                     "id",
                     "email",
                     "name",
+                    "avatarUrl",
                     "emailNotificationsEnabled",
                     "createdAt"
                   ],
@@ -1375,6 +1385,13 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "avatarUrl": {
+                    "type": "string",
+                    "maxLength": 524288,
+                    "pattern": "^data:image\\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$",
+                    "nullable": true,
+                    "description": "Resized profile image, or null to remove it"
+                  },
                   "name": {
                     "type": "string",
                     "minLength": 1,
@@ -1424,6 +1441,10 @@
                     "name": {
                       "type": "string"
                     },
+                    "avatarUrl": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "emailNotificationsEnabled": {
                       "type": "boolean",
                       "description": "Whether the user wants to receive reminder emails (vaccines, appointments)"
@@ -1437,6 +1458,7 @@
                     "id",
                     "email",
                     "name",
+                    "avatarUrl",
                     "emailNotificationsEnabled",
                     "createdAt"
                   ],
@@ -1713,6 +1735,10 @@
                         "name": {
                           "type": "string"
                         },
+                        "avatarUrl": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "emailNotificationsEnabled": {
                           "type": "boolean"
                         },
@@ -1725,6 +1751,7 @@
                         "id",
                         "email",
                         "name",
+                        "avatarUrl",
                         "emailNotificationsEnabled",
                         "createdAt"
                       ],
@@ -1738,6 +1765,37 @@
                           "profile": {
                             "type": "object",
                             "properties": {
+                              "measurements": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "measuredOn": {
+                                      "type": "string",
+                                      "format": "date"
+                                    },
+                                    "weightGrams": {
+                                      "type": "integer",
+                                      "nullable": true
+                                    },
+                                    "heightMillimeters": {
+                                      "type": "integer",
+                                      "nullable": true
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "measuredOn",
+                                    "weightGrams",
+                                    "heightMillimeters"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
                               "id": {
                                 "type": "string",
                                 "format": "uuid"
@@ -1793,6 +1851,7 @@
                               }
                             },
                             "required": [
+                              "measurements",
                               "id",
                               "userId",
                               "name",
@@ -2237,6 +2296,33 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "measurement": {
+                    "type": "object",
+                    "properties": {
+                      "measuredOn": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Date the measurement was taken, between birth and today"
+                      },
+                      "weightGrams": {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 150000,
+                        "nullable": true
+                      },
+                      "heightMillimeters": {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 2500,
+                        "nullable": true
+                      }
+                    },
+                    "required": [
+                      "measuredOn"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Optional initial measurement, saved together with the profile"
+                  },
                   "name": {
                     "type": "string",
                     "minLength": 1,
@@ -2313,6 +2399,37 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "measurements": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "measuredOn": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "weightGrams": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "heightMillimeters": {
+                            "type": "integer",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "measuredOn",
+                          "weightGrams",
+                          "heightMillimeters"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "id": {
                       "type": "string",
                       "format": "uuid"
@@ -2368,6 +2485,7 @@
                     }
                   },
                   "required": [
+                    "measurements",
                     "id",
                     "userId",
                     "name",
@@ -2485,6 +2603,37 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "measurements": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "measuredOn": {
+                              "type": "string",
+                              "format": "date"
+                            },
+                            "weightGrams": {
+                              "type": "integer",
+                              "nullable": true
+                            },
+                            "heightMillimeters": {
+                              "type": "integer",
+                              "nullable": true
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "measuredOn",
+                            "weightGrams",
+                            "heightMillimeters"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
                       "id": {
                         "type": "string",
                         "format": "uuid"
@@ -2540,6 +2689,7 @@
                       }
                     },
                     "required": [
+                      "measurements",
                       "id",
                       "userId",
                       "name",
@@ -2642,6 +2792,37 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "measurements": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "measuredOn": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "weightGrams": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "heightMillimeters": {
+                            "type": "integer",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "measuredOn",
+                          "weightGrams",
+                          "heightMillimeters"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "id": {
                       "type": "string",
                       "format": "uuid"
@@ -2697,6 +2878,7 @@
                     }
                   },
                   "required": [
+                    "measurements",
                     "id",
                     "userId",
                     "name",
@@ -2811,6 +2993,33 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "measurement": {
+                    "type": "object",
+                    "properties": {
+                      "measuredOn": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Date the measurement was taken, between birth and today"
+                      },
+                      "weightGrams": {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 150000,
+                        "nullable": true
+                      },
+                      "heightMillimeters": {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 2500,
+                        "nullable": true
+                      }
+                    },
+                    "required": [
+                      "measuredOn"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Append a new measurement without replacing earlier records"
+                  },
                   "name": {
                     "type": "string",
                     "minLength": 1
@@ -2894,6 +3103,37 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "measurements": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "measuredOn": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "weightGrams": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "heightMillimeters": {
+                            "type": "integer",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "measuredOn",
+                          "weightGrams",
+                          "heightMillimeters"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "id": {
                       "type": "string",
                       "format": "uuid"
@@ -2949,6 +3189,7 @@
                     }
                   },
                   "required": [
+                    "measurements",
                     "id",
                     "userId",
                     "name",

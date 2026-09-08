@@ -11,6 +11,7 @@ model User {
   id                        String            @id @default(uuid())
   email                     String            @unique
   passwordHash              String            @map("password_hash")
+  avatarUrl                 String?           @map("avatar_url")
   name                      String
   emailNotificationsEnabled Boolean           @default(true) @map("email_notifications_enabled")
   createdAt                 DateTime          @default(now()) @map("created_at")
@@ -72,9 +73,23 @@ model Baby {
   invites          BabyInvite[]
   specialists      SpecialistBaby[]
   medications      Medication[]
+  measurements     BabyMeasurement[]
 
   @@index([userId])
   @@map("babies")
+}
+
+// Profile measurements are dated records, independent of clinical appointments.
+model BabyMeasurement {
+  id                 String   @id @default(uuid())
+  babyId             String   @map("baby_id")
+  baby               Baby     @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  measuredOn         DateTime @map("measured_on") @db.Date
+  weightGrams        Int?     @map("weight_grams")
+  heightMillimeters  Int?     @map("height_millimeters")
+
+  @@index([babyId, measuredOn])
+  @@map("baby_measurements")
 }
 
 // A baby profile can be jointly managed by more than one adult (e.g. both parents). `Baby.userId`

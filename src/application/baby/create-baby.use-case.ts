@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { BabyMeasurementInput } from '../../domain/baby/baby-measurement';
 import { Baby, BabySexAtBirth } from '../../domain/baby/baby';
 import { BabyRepository } from './baby-repository';
 import { BabyGuardianRepository } from './baby-guardian-repository';
 
 export interface CreateBabyInput {
+  measurement?: BabyMeasurementInput;
   userId: string;
   name: string;
   birthDate: Date;
@@ -24,6 +26,12 @@ export class CreateBabyUseCase {
 
   async execute(input: CreateBabyInput): Promise<Baby> {
     const baby = Baby.create({
+      measurements: input.measurement ? [{
+        id: randomUUID(),
+        measuredOn: new Date(`${input.measurement.measuredOn}T00:00:00.000Z`),
+        weightGrams: input.measurement.weightGrams ?? null,
+        heightMillimeters: input.measurement.heightMillimeters ?? null,
+      }] : [],
       id: randomUUID(),
       userId: input.userId,
       name: input.name,

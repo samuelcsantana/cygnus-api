@@ -68,6 +68,7 @@ export async function userRoutes(app: App) {
         const user = await updateUserProfileUseCase.execute({
           userId: request.userId,
           name: request.body.name,
+          avatarUrl: request.body.avatarUrl,
           email: request.body.email,
           password: request.body.password,
           currentPassword: request.body.currentPassword,
@@ -78,6 +79,7 @@ export async function userRoutes(app: App) {
           id: user.id,
           email: user.email,
           name: user.name,
+          avatarUrl: user.avatarUrl,
           emailNotificationsEnabled: user.emailNotificationsEnabled,
           createdAt: user.createdAt.toISOString(),
         });
@@ -124,6 +126,7 @@ export async function userRoutes(app: App) {
             id: data.user.id,
             email: data.user.email,
             name: data.user.name,
+            avatarUrl: data.user.avatarUrl,
             emailNotificationsEnabled: data.user.emailNotificationsEnabled,
             createdAt: data.user.createdAt.toISOString(),
           },
@@ -140,6 +143,10 @@ export async function userRoutes(app: App) {
               healthPlanNumber: baby.healthPlanNumber,
               avatarUrl: baby.avatarUrl,
               avatarColor: baby.avatarColor,
+              measurements: baby.measurements.map((measurement) => ({
+                ...measurement,
+                measuredOn: measurement.measuredOn.toISOString().slice(0, 10),
+              })),
               createdAt: baby.createdAt.toISOString(),
             },
             vaccineRecords: vaccineRecords.map((record) => ({

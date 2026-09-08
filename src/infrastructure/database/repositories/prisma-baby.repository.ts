@@ -1,8 +1,10 @@
 import { PrismaClient } from '../../../generated/prisma/client';
 import { BabyRepository } from '../../../application/baby/baby-repository';
 import { Baby, BabySexAtBirth } from '../../../domain/baby/baby';
+import { BabyMeasurement } from '../../../domain/baby/baby-measurement';
 
 interface BabyRecord {
+  measurements?: BabyMeasurement[];
   id: string;
   userId: string;
   name: string;
@@ -19,6 +21,7 @@ interface BabyRecord {
 
 function toDomain(record: BabyRecord): Baby {
   return Baby.create({
+    measurements: (record.measurements ?? []).map(({ id, measuredOn, weightGrams, heightMillimeters }) => ({ id, measuredOn, weightGrams, heightMillimeters })),
     id: record.id,
     userId: record.userId,
     name: record.name,
@@ -38,17 +41,17 @@ export class PrismaBabyRepository implements BabyRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findById(id: string): Promise<Baby | null> {
-    const record = await this.prisma.baby.findUnique({ where: { id } });
+    const record = await this.prisma.baby.findUnique({ where: { id }, include: { measurements: true } });
     return record ? toDomain(record) : null;
   }
 
   async findAllByUserId(userId: string): Promise<Baby[]> {
-    const records = await this.prisma.baby.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } });
+    const records = await this.prisma.baby.findMany({ where: { userId }, orderBy: { createdAt: 'asc' }, include: { measurements: true } });
     return records.map(toDomain);
   }
 
   async findAll(): Promise<Baby[]> {
-    const records = await this.prisma.baby.findMany({ orderBy: { createdAt: 'asc' } });
+    const records = await this.prisma.baby.findMany({ orderBy: { createdAt: 'asc' }, include: { measurements: true } });
     return records.map(toDomain);
   }
 
@@ -56,6 +59,7 @@ export class PrismaBabyRepository implements BabyRepository {
     await this.prisma.baby.upsert({
       where: { id: baby.id },
       create: {
+        measurements: { create: baby.measurements },
         id: baby.id,
         userId: baby.userId,
         name: baby.name,
@@ -70,6 +74,9 @@ export class PrismaBabyRepository implements BabyRepository {
         createdAt: baby.createdAt,
       },
       update: {
+        // Append new rows atomically with the profile; a later profile save never
+        // overwrites history or removes a measurement added by another guardian.
+        measurements: { createMany: { data: baby.measurements, skipDuplicates: true } },
         name: baby.name,
         birthDate: baby.birthDate,
         sexAtBirth: baby.sexAtBirth,

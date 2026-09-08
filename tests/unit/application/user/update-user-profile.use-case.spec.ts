@@ -1,3 +1,4 @@
+import { updateProfileBodySchema } from '../../../../src/presentation/http/schemas/user.schema';
 import { describe, expect, it, vi } from 'vitest';
 import { UpdateUserProfileUseCase } from '../../../../src/application/user/update-user-profile.use-case';
 import { EmailAlreadyInUseError } from '../../../../src/application/user/errors/email-already-in-use.error';
@@ -140,4 +141,22 @@ describe('UpdateUserProfileUseCase', () => {
     await expect(useCase.execute({ userId: 'missing-id', name: 'Anyone' })).rejects.toThrow(UserNotFoundError);
     expect(userRepository.save).not.toHaveBeenCalled();
   });
+});
+
+it('persists, preserves and removes a profile image', async () => {
+  const photo = 'data:image/jpeg;base64,/9j/AA==';
+  const repository = buildUserRepository({ findById: vi.fn().mockResolvedValue(existingUser) });
+  const useCase = new UpdateUserProfileUseCase(repository, buildPasswordHasher());
+  const withPhoto = await useCase.execute({ userId: existingUser.id, avatarUrl: photo });
+  expect(withPhoto.avatarUrl).toBe(photo);
+  vi.mocked(repository.findById).mockResolvedValue(withPhoto);
+  expect((await useCase.execute({ userId: existingUser.id, name: 'New name' })).avatarUrl).toBe(photo);
+  expect((await useCase.execute({ userId: existingUser.id, avatarUrl: null })).avatarUrl).toBeNull();
+});
+
+it('accepts an image removal and rejects external or executable avatar content', () => {
+  expect(updateProfileBodySchema.safeParse({ avatarUrl: null }).success).toBe(true);
+  expect(updateProfileBodySchema.safeParse({ avatarUrl: 'data:image/jpeg;base64,/9j/AA==' }).success).toBe(true);
+  expect(updateProfileBodySchema.safeParse({ avatarUrl: 'https://example.com/photo.jpg' }).success).toBe(false);
+  expect(updateProfileBodySchema.safeParse({ avatarUrl: 'data:image/svg+xml;base64,AAAA' }).success).toBe(false);
 });

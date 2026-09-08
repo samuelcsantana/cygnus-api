@@ -111,6 +111,7 @@ export async function authRoutes(app: App) {
           id: user.id,
           email: user.email,
           name: user.name,
+          avatarUrl: user.avatarUrl,
           emailNotificationsEnabled: user.emailNotificationsEnabled,
           createdAt: user.createdAt.toISOString(),
         });
@@ -230,6 +231,7 @@ export async function authRoutes(app: App) {
         id: user.id,
         email: user.email,
         name: user.name,
+        avatarUrl: user.avatarUrl,
         emailNotificationsEnabled: user.emailNotificationsEnabled,
         createdAt: user.createdAt.toISOString(),
       });

@@ -54,6 +54,7 @@ export class ResetPasswordUseCase {
         email: user.email,
         passwordHash,
         name: user.name,
+        avatarUrl: user.avatarUrl,
         emailNotificationsEnabled: user.emailNotificationsEnabled,
         createdAt: user.createdAt,
         sessionVersion,
