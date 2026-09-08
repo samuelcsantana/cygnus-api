@@ -4,6 +4,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text-summary', 'html', 'json-summary', 'lcov'],
+      // Include unimported modules; generated Prisma code is not authored source.
+      include: ['src/**/*.ts'],
+      exclude: ['src/generated/**', '**/*.d.ts'],
+    },
     include: ['tests/**/*.spec.ts'],
     hookTimeout: 20000,
     testTimeout: 20000,

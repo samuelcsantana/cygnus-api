@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Cygnus API",
-    "description": "Backend API for the Cygnus project",
+    "description": "Backend API for Ninho family health tracking",
     "version": "0.1.0"
   },
   "components": {

@@ -120,7 +120,7 @@ export async function buildApp() {
     openapi: {
       info: {
         title: 'Cygnus API',
-        description: 'Backend API for the Cygnus project',
+        description: 'Backend API for Ninho family health tracking',
         version: '0.1.0',
       },
       tags: [
