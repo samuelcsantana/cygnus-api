@@ -1,10 +1,12 @@
 import { FutureBirthDateError } from './errors/future-birth-date.error';
 import { InvalidBabyNameError } from './errors/invalid-baby-name.error';
+import { BabyMeasurement, validateBabyMeasurement } from './baby-measurement';
 
 /** Sexo ao nascer — variável clínica, não identidade de gênero. Opcional: `null` é "não informado". */
 export type BabySexAtBirth = 'MALE' | 'FEMALE';
 
 export interface BabyProps {
+  measurements: BabyMeasurement[];
   id: string;
   userId: string;
   name: string;
@@ -20,6 +22,7 @@ export interface BabyProps {
 }
 
 export interface CreateBabyProps {
+  measurements?: BabyMeasurement[];
   id: string;
   userId: string;
   name: string;
@@ -35,6 +38,7 @@ export interface CreateBabyProps {
 }
 
 export class Baby {
+  readonly measurements: BabyMeasurement[];
   readonly id: string;
   readonly userId: string;
   readonly name: string;
@@ -49,6 +53,7 @@ export class Baby {
   readonly createdAt: Date;
 
   private constructor(props: BabyProps) {
+    this.measurements = props.measurements;
     this.id = props.id;
     this.userId = props.userId;
     this.name = props.name;
@@ -64,6 +69,7 @@ export class Baby {
   }
 
   static create(props: CreateBabyProps): Baby {
+    for (const measurement of props.measurements ?? []) validateBabyMeasurement(measurement, props.birthDate);
     const name = props.name.trim();
 
     if (name.length === 0) {
@@ -75,6 +81,7 @@ export class Baby {
     }
 
     return new Baby({
+      measurements: props.measurements ?? [],
       id: props.id,
       userId: props.userId,
       name,

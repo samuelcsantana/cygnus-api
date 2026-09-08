@@ -8,6 +8,7 @@ import { UserNotFoundError } from './errors/user-not-found.error';
 export interface UpdateUserProfileInput {
   userId: string;
   name?: string;
+  avatarUrl?: string | null;
   email?: string;
   password?: string;
   currentPassword?: string;
@@ -54,6 +55,7 @@ export class UpdateUserProfileUseCase {
       email: input.email ?? existingUser.email,
       passwordHash,
       name: input.name ?? existingUser.name,
+      avatarUrl: input.avatarUrl !== undefined ? input.avatarUrl : existingUser.avatarUrl,
       emailNotificationsEnabled: input.emailNotificationsEnabled ?? existingUser.emailNotificationsEnabled,
       createdAt: existingUser.createdAt,
       // Carried over explicitly: rebuilding the entity without it would reset the counter to zero

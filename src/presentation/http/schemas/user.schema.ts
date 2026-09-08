@@ -26,6 +26,7 @@ export const exportUserDataResponseSchema = z
       id: z.string().uuid(),
       email: z.string().email(),
       name: z.string(),
+      avatarUrl: z.string().nullable(),
       emailNotificationsEnabled: z.boolean(),
       createdAt: z.string().datetime(),
     }),
@@ -42,6 +43,7 @@ export const exportUserDataResponseSchema = z
 
 export const updateProfileBodySchema = z
   .object({
+    avatarUrl: z.string().max(524288).regex(/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/).nullable().optional().describe('Resized profile image, or null to remove it'),
     name: z.string().min(1).describe("The parent or caregiver's full name").optional(),
     email: z.string().email().describe('New email address. Requires currentPassword').optional(),
     password: z

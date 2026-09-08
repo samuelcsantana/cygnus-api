@@ -1,9 +1,12 @@
 import { Baby, BabySexAtBirth } from '../../domain/baby/baby';
+import { randomUUID } from 'node:crypto';
+import { BabyMeasurementInput } from '../../domain/baby/baby-measurement';
 import { BabyRepository } from './baby-repository';
 import { BabyGuardianRepository } from './baby-guardian-repository';
 import { ensureBabyAccess } from './ensure-baby-access';
 
 export interface UpdateBabyInput {
+  measurement?: BabyMeasurementInput;
   babyId: string;
   requestingUserId: string;
   name?: string;
@@ -32,6 +35,12 @@ export class UpdateBabyUseCase {
     );
 
     const updatedBaby = Baby.create({
+      measurements: [...existingBaby.measurements, ...(input.measurement ? [{
+        id: randomUUID(),
+        measuredOn: new Date(`${input.measurement.measuredOn}T00:00:00.000Z`),
+        weightGrams: input.measurement.weightGrams ?? null,
+        heightMillimeters: input.measurement.heightMillimeters ?? null,
+      }] : [])],
       id: existingBaby.id,
       userId: existingBaby.userId,
       name: input.name ?? existingBaby.name,

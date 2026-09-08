@@ -5,6 +5,7 @@ export interface UserProps {
   id: string;
   email: string;
   passwordHash: string;
+  avatarUrl?: string | null;
   name: string;
   emailNotificationsEnabled: boolean;
   createdAt: Date;
@@ -15,6 +16,7 @@ export class User {
   readonly id: string;
   readonly email: string;
   readonly passwordHash: string;
+  readonly avatarUrl: string | null;
   readonly name: string;
   readonly emailNotificationsEnabled: boolean;
   readonly createdAt: Date;
@@ -28,6 +30,7 @@ export class User {
     this.id = props.id;
     this.email = props.email;
     this.passwordHash = props.passwordHash;
+    this.avatarUrl = props.avatarUrl ?? null;
     this.name = props.name;
     this.emailNotificationsEnabled = props.emailNotificationsEnabled;
     this.createdAt = props.createdAt;
@@ -76,6 +79,7 @@ export class User {
     id: string;
     email: string;
     passwordHash: string;
+    avatarUrl?: string | null;
     name: string;
     emailNotificationsEnabled?: boolean;
     createdAt?: Date;
@@ -94,6 +98,7 @@ export class User {
       email,
       passwordHash: props.passwordHash,
       name,
+      avatarUrl: props.avatarUrl ?? null,
       emailNotificationsEnabled: props.emailNotificationsEnabled ?? true,
       createdAt: props.createdAt ?? new Date(),
       sessionVersion: props.sessionVersion ?? 0,

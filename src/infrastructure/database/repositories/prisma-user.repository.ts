@@ -7,6 +7,7 @@ function toDomain(record: {
   email: string;
   passwordHash: string;
   name: string;
+  avatarUrl: string | null;
   emailNotificationsEnabled: boolean;
   createdAt: Date;
   sessionVersion: number;
@@ -16,6 +17,7 @@ function toDomain(record: {
     email: record.email,
     passwordHash: record.passwordHash,
     name: record.name,
+    avatarUrl: record.avatarUrl,
     emailNotificationsEnabled: record.emailNotificationsEnabled,
     createdAt: record.createdAt,
     sessionVersion: record.sessionVersion,
@@ -43,6 +45,7 @@ export class PrismaUserRepository implements UserRepository {
         email: user.email,
         passwordHash: user.passwordHash,
         name: user.name,
+        avatarUrl: user.avatarUrl,
         emailNotificationsEnabled: user.emailNotificationsEnabled,
         createdAt: user.createdAt,
         sessionVersion: user.sessionVersion,
@@ -51,6 +54,7 @@ export class PrismaUserRepository implements UserRepository {
         email: user.email,
         passwordHash: user.passwordHash,
         name: user.name,
+        avatarUrl: user.avatarUrl,
         emailNotificationsEnabled: user.emailNotificationsEnabled,
         sessionVersion: user.sessionVersion,
       },

@@ -11,6 +11,7 @@ export const registerResponseSchema = z
     id: z.string().uuid(),
     email: z.string().email(),
     name: z.string(),
+    avatarUrl: z.string().nullable(),
     emailNotificationsEnabled: z.boolean(),
     createdAt: z.string().datetime(),
   })
@@ -26,6 +27,7 @@ export const currentUserResponseSchema = z
     id: z.string().uuid(),
     email: z.string().email(),
     name: z.string(),
+    avatarUrl: z.string().nullable(),
     emailNotificationsEnabled: z
       .boolean()
       .describe('Whether the user wants to receive reminder emails (vaccines, appointments)'),

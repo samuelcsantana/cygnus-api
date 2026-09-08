@@ -21,7 +21,7 @@ export interface ExportedBaby {
 }
 
 export interface ExportedUserData {
-  user: { id: string; email: string; name: string; emailNotificationsEnabled: boolean; createdAt: Date };
+  user: { avatarUrl: string | null; id: string; email: string; name: string; emailNotificationsEnabled: boolean; createdAt: Date };
   babies: ExportedBaby[];
 }
 
@@ -64,6 +64,7 @@ export class ExportUserDataUseCase {
         id: user.id,
         email: user.email,
         name: user.name,
+        avatarUrl: user.avatarUrl,
         emailNotificationsEnabled: user.emailNotificationsEnabled,
         createdAt: user.createdAt,
       },
