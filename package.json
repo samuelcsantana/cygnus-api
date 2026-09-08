@@ -1,9 +1,9 @@
 {
   "name": "cygnus-api",
   "version": "0.1.0",
-  "description": "Backend API for the Cygnus project",
+  "description": "Backend API for Ninho family health tracking",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "main": "dist/main.js",
   "scripts": {
     "dev": "tsx watch src/main.ts",
@@ -17,7 +17,8 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "prisma db seed",
-    "openapi:generate": "tsx scripts/generate-openapi.ts"
+    "openapi:generate": "tsx scripts/generate-openapi.ts",
+    "test:coverage": "dotenv -e .env.test -- vitest run --coverage && node scripts/coverage-summary.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
@@ -48,6 +49,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.23.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "dotenv-cli": "^11.0.0",
     "pino-pretty": "^13.0.0",
     "prisma": "^7.9.1",
