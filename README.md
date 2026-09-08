@@ -44,6 +44,9 @@ On container start, `npx prisma migrate deploy` runs automatically before the se
 
 ## API contract
 
+Google sign-in setup, callback URLs and account association rules are documented
+in [GOOGLE_AUTH.md](./GOOGLE_AUTH.md).
+
 [`openapi.json`](./openapi.json) is the OpenAPI 3.0 document for every endpoint, committed and kept
 current by CI — regenerate it with `npm run openapi:generate` after changing any route. Point a
 client generator (`openapi-typescript`, `orval`) at it, or read it as the source of truth for
