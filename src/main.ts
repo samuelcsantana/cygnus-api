@@ -9,11 +9,15 @@ import {
   scheduleDailyReminderJob,
 } from './infrastructure/queue/reminder-queue';
 import { createReminderWorker } from './infrastructure/queue/reminder-worker';
+import { demoAccountQueue, scheduleDemoAccountSweep } from './infrastructure/queue/demo-account-queue';
+import { createDemoAccountWorker } from './infrastructure/queue/demo-account-worker';
 
 async function start() {
   const app = await buildApp();
   const reminderWorker = createReminderWorker();
   await scheduleDailyReminderJob();
+  const demoAccountWorker = createDemoAccountWorker();
+  await scheduleDemoAccountSweep();
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'server.shutting_down');
@@ -21,6 +25,8 @@ async function start() {
     await reminderWorker.close();
     await reminderQueue.close();
     await reminderDeadLetterQueue.close();
+    await demoAccountWorker.close();
+    await demoAccountQueue.close();
     await prisma.$disconnect();
     await redis.quit();
     process.exit(0);

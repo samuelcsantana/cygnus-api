@@ -7,6 +7,8 @@ import { redis } from '../../src/infrastructure/cache/redis-client';
 import { VACCINE_CATALOG_CACHE_KEY } from '../../src/infrastructure/database/repositories/cached-vaccine.repository';
 import { VACCINE_CATALOG_SEED } from '../../prisma/vaccine-catalog-seed-data';
 import { DEMO_ACCOUNT_LIFETIME_MS } from '../../src/domain/user/user';
+import { DeleteExpiredDemoAccountsUseCase } from '../../src/application/demo/delete-expired-demo-accounts.use-case';
+import { PrismaDemoAccountRepository } from '../../src/infrastructure/database/repositories/prisma-demo-account.repository';
 
 function cookieValues(setCookieHeader: string | string[] | undefined): string[] {
   return Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : [];
@@ -196,6 +198,54 @@ describe('Demo accounts', () => {
 
       expect(changed.statusCode).toBe(400);
       expect(await prisma.user.count({ where: { email: 'mine-now@example.com' } })).toBe(0);
+    });
+  });
+
+  describe('the expiry sweep', () => {
+    const sweep = () => new DeleteExpiredDemoAccountsUseCase(new PrismaDemoAccountRepository(prisma)).execute();
+
+    it('deletes expired demo accounts with everything they hold, and nothing else', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: { email: 'parent@example.com', password: 'S3cur3-Password', name: 'Jane Doe' },
+      });
+      const realUser = await prisma.user.findUniqueOrThrow({ where: { email: 'parent@example.com' } });
+      const expired = await startDemo();
+      const live = await startDemo();
+      const [expiredId, liveId] = await Promise.all(
+        [expired, live].map(async ({ cookie }) =>
+          (await app.inject({ method: 'GET', url: '/auth/me', headers: { cookie } })).json().id as string,
+        ),
+      );
+      await prisma.user.update({ where: { id: expiredId }, data: { demoExpiresAt: new Date(Date.now() - 1000) } });
+      await prisma.auditLog.createMany({
+        data: [expiredId, realUser.id].map((userId) => ({
+          userId,
+          action: 'vaccine.apply',
+          resourceType: 'BabyVaccineRecord',
+          resourceId: 'record-id',
+        })),
+      });
+
+      expect(await sweep()).toBe(1);
+
+      expect(await prisma.user.findUnique({ where: { id: expiredId } })).toBeNull();
+      expect(await prisma.baby.count({ where: { userId: expiredId } })).toBe(0);
+      expect(await prisma.specialist.count({ where: { userId: expiredId } })).toBe(0);
+      expect(await prisma.auditLog.count({ where: { userId: expiredId } })).toBe(0);
+
+      expect(await prisma.baby.count({ where: { userId: liveId } })).toBe(2);
+      expect(await prisma.user.findUnique({ where: { id: realUser.id } })).not.toBeNull();
+      expect(await prisma.auditLog.count({ where: { userId: realUser.id } })).toBe(1);
+    });
+
+    it('finds nothing to do on a second run', async () => {
+      await startDemo();
+      await prisma.user.updateMany({ data: { demoExpiresAt: new Date(Date.now() - 1000) } });
+
+      expect(await sweep()).toBe(1);
+      expect(await sweep()).toBe(0);
     });
   });
 

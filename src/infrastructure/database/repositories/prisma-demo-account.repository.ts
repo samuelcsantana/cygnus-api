@@ -52,4 +52,35 @@ export class PrismaDemoAccountRepository implements DemoAccountRepository {
       this.prisma.medication.createMany({ data: dataset.medications }),
     ]);
   }
+
+  /**
+   * Deleting the user is enough for everything the account owns — babies, records, appointments,
+   * specialists, guardianships and notifications all cascade from it.
+   *
+   * The audit log is the exception: `audit_logs.user_id` is a plain column, not a foreign key, so
+   * the trail of a visitor marking doses on a fictional child would outlive the child. It is removed
+   * in the same transaction. A real account's deletion keeps its trail; this one has no person
+   * behind it to account for.
+   */
+  async deleteExpired(now: Date): Promise<number> {
+    const expired = await this.prisma.user.findMany({
+      where: { demoExpiresAt: { lte: now } },
+      select: { id: true },
+    });
+
+    if (expired.length === 0) {
+      return 0;
+    }
+
+    const ids = expired.map(({ id }) => id);
+
+    const [, deletedUsers] = await this.prisma.$transaction([
+      this.prisma.auditLog.deleteMany({ where: { userId: { in: ids } } }),
+      // Repeats the expiry condition instead of trusting `ids` alone, so this statement can only
+      // ever delete demo accounts — a real one has no expiry to match.
+      this.prisma.user.deleteMany({ where: { id: { in: ids }, demoExpiresAt: { lte: now } } }),
+    ]);
+
+    return deletedUsers.count;
+  }
 }
