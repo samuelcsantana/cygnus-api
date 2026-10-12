@@ -47,6 +47,17 @@ describe('UpdateUserProfileUseCase', () => {
     expect(userRepository.save).toHaveBeenCalledWith(updated);
   });
 
+  it('keeps a demo account disposable when its profile is edited', async () => {
+    const demo = User.createDemo({ id: 'demo-id', passwordHash: 'h', name: 'Visitor', now: new Date() });
+    const userRepository = buildUserRepository({ findById: vi.fn().mockResolvedValue(demo) });
+    const useCase = new UpdateUserProfileUseCase(userRepository, buildPasswordHasher());
+
+    const updated = await useCase.execute({ userId: demo.id, name: 'Recruiter' });
+
+    expect(updated.name).toBe('Recruiter');
+    expect(updated.demoExpiresAt).toEqual(demo.demoExpiresAt);
+  });
+
   it('rejects an email change without currentPassword', async () => {
     const userRepository = buildUserRepository({ findById: vi.fn().mockResolvedValue(existingUser) });
     const passwordHasher = buildPasswordHasher();

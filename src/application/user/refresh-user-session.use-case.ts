@@ -31,6 +31,13 @@ export class RefreshUserSessionUseCase {
       throw new InvalidTokenError();
     }
 
+    // A demo account ends at its expiry, not whenever the hourly sweep reaches it — the sweep only
+    // runs while the instance is awake. Refusing the refresh here bounds the overrun by the access
+    // token's 15 minutes, with no extra read: the user was already loaded above.
+    if (user.isExpiredDemoAt(new Date())) {
+      throw new InvalidTokenError();
+    }
+
     const tokenPair = this.tokenService.generateTokenPair(user.id, user.sessionVersion);
 
     // Refresh tokens are single-use/rotating: revoke the one that was just spent so a leaked or

@@ -61,6 +61,8 @@ export class UpdateUserProfileUseCase {
       // Carried over explicitly: rebuilding the entity without it would reset the counter to zero
       // and quietly bring every session a password reset had just killed back to life.
       sessionVersion: existingUser.sessionVersion,
+      // The repository never updates the expiry, so this only keeps the returned entity truthful.
+      demoExpiresAt: existingUser.demoExpiresAt,
     });
 
     await this.userRepository.save(updatedUser);

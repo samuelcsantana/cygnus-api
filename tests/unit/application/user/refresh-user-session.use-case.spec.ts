@@ -141,6 +141,28 @@ describe('RefreshUserSessionUseCase', () => {
     });
   });
 
+  it('refuses to extend a demo account past its expiry, before the sweep has deleted it', async () => {
+    const createdTwoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const expiredDemo = User.createDemo({ id: 'user-id', passwordHash: 'h', name: 'Visitor', now: createdTwoDaysAgo });
+    const userRepository = buildUserRepository({ findById: vi.fn().mockResolvedValue(expiredDemo) });
+    const tokenService = buildTokenService();
+    const useCase = new RefreshUserSessionUseCase(userRepository, tokenService, buildTokenRevocationService());
+
+    await expect(useCase.execute('valid-refresh-token')).rejects.toThrow(InvalidTokenError);
+    expect(tokenService.generateTokenPair).not.toHaveBeenCalled();
+  });
+
+  it('keeps refreshing a demo account that is still inside its 24 hours', async () => {
+    const liveDemo = User.createDemo({ id: 'user-id', passwordHash: 'h', name: 'Visitor', now: new Date() });
+    const userRepository = buildUserRepository({ findById: vi.fn().mockResolvedValue(liveDemo) });
+    const useCase = new RefreshUserSessionUseCase(userRepository, buildTokenService(), buildTokenRevocationService());
+
+    await expect(useCase.execute('valid-refresh-token')).resolves.toEqual({
+      accessToken: 'new-access-token',
+      refreshToken: 'new-refresh-token',
+    });
+  });
+
   it('rejects a refresh token whose user no longer exists', async () => {
     const userRepository = buildUserRepository({ findById: vi.fn().mockResolvedValue(null) });
     const tokenService = buildTokenService();

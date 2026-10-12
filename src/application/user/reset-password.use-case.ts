@@ -58,6 +58,7 @@ export class ResetPasswordUseCase {
         emailNotificationsEnabled: user.emailNotificationsEnabled,
         createdAt: user.createdAt,
         sessionVersion,
+        demoExpiresAt: user.demoExpiresAt,
       }),
     );
 
