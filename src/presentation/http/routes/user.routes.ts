@@ -82,6 +82,7 @@ export async function userRoutes(app: App) {
           avatarUrl: user.avatarUrl,
           emailNotificationsEnabled: user.emailNotificationsEnabled,
           createdAt: user.createdAt.toISOString(),
+          demoExpiresAt: user.demoExpiresAt?.toISOString() ?? null,
         });
       } catch (error) {
         if (error instanceof EmailAlreadyInUseError) {

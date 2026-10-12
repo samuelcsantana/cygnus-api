@@ -5,12 +5,17 @@ import { RefreshUserSessionUseCase } from '../../../application/user/refresh-use
 import { RequestVerificationCodeUseCase } from '../../../application/user/request-verification-code.use-case';
 import { VerifyPasswordlessCodeUseCase } from '../../../application/user/verify-passwordless-code.use-case';
 import { ResetPasswordUseCase } from '../../../application/user/reset-password.use-case';
+import { StartDemoSessionUseCase } from '../../../application/demo/start-demo-session.use-case';
 import { EmailAlreadyInUseError } from '../../../application/user/errors/email-already-in-use.error';
 import { InvalidCredentialsError } from '../../../application/user/errors/invalid-credentials.error';
 import { InvalidTokenError } from '../../../application/user/errors/invalid-token.error';
 import { InvalidVerificationCodeError } from '../../../application/user/errors/invalid-verification-code.error';
 import { DomainError } from '../../../shared/errors/domain-error';
 import { PrismaUserRepository } from '../../../infrastructure/database/repositories/prisma-user.repository';
+import { PrismaDemoAccountRepository } from '../../../infrastructure/database/repositories/prisma-demo-account.repository';
+import { PrismaVaccineRepository } from '../../../infrastructure/database/repositories/prisma-vaccine.repository';
+import { CachedVaccineRepository } from '../../../infrastructure/database/repositories/cached-vaccine.repository';
+import { redis } from '../../../infrastructure/cache/redis-client';
 import { BcryptPasswordHasher } from '../../../infrastructure/security/bcrypt-password-hasher';
 import { tokenService } from '../../../infrastructure/security/token-service.instance';
 import { tokenRevocationService } from '../../../infrastructure/security/token-revocation-service.instance';
@@ -27,6 +32,7 @@ import {
   authErrorResponseSchema,
   authSuccessResponseSchema,
   currentUserResponseSchema,
+  demoSessionResponseSchema,
   loginBodySchema,
   passwordResetVerifyBodySchema,
   passwordlessVerifyBodySchema,
@@ -39,6 +45,11 @@ import {
 // Relaxed under NODE_ENV=test: the integration suite legitimately registers/logs in far more than
 // 10 times per minute across a single spec file sharing one in-memory rate-limit store.
 const AUTH_RATE_LIMIT = { max: env.NODE_ENV === 'test' ? 1000 : 10, timeWindow: '1 minute' };
+
+// Each demo is an account with about seventy rows behind it, kept for a day. A person exploring the
+// app clicks it once or twice; ten an hour from one address is already somebody filling the
+// database, and that is where the limit sits.
+const DEMO_RATE_LIMIT = { max: env.NODE_ENV === 'test' ? 1000 : 10, timeWindow: '1 hour' };
 
 export async function authRoutes(app: App) {
   const userRepository = new PrismaUserRepository(prisma);
@@ -81,6 +92,12 @@ export async function authRoutes(app: App) {
   const resetPasswordUseCase = new ResetPasswordUseCase(
     userRepository,
     verificationCodeService,
+    passwordHasher,
+    tokenService,
+  );
+  const startDemoSessionUseCase = new StartDemoSessionUseCase(
+    new CachedVaccineRepository(new PrismaVaccineRepository(prisma), redis),
+    new PrismaDemoAccountRepository(prisma),
     passwordHasher,
     tokenService,
   );
@@ -234,6 +251,42 @@ export async function authRoutes(app: App) {
         avatarUrl: user.avatarUrl,
         emailNotificationsEnabled: user.emailNotificationsEnabled,
         createdAt: user.createdAt.toISOString(),
+        demoExpiresAt: user.demoExpiresAt?.toISOString() ?? null,
+      });
+    },
+  });
+
+  app.route({
+    method: 'POST',
+    url: '/auth/demo',
+    config: { rateLimit: DEMO_RATE_LIMIT },
+    schema: {
+      tags: ['Auth'],
+      summary: 'Start a session in a new, disposable demo account',
+      description:
+        'Creates an account already holding a family (two children, their vaccine records, appointments, growth, ' +
+        'milestones, medications and professionals), signs the caller into it with the same cookies /auth/login ' +
+        'sets, and deletes it with everything in it 24 hours later. Each call makes a new account, so visitors ' +
+        'never see each other\'s changes. The account has an undeliverable address and no usable password: its ' +
+        'e-mail and password cannot be changed (both ask for the current password), so it cannot be turned into a ' +
+        'permanent account, and it sends no e-mail. Limited to a few accounts per client per hour.',
+      response: {
+        201: demoSessionResponseSchema,
+        429: authErrorResponseSchema,
+        500: authErrorResponseSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      const session = await startDemoSessionUseCase.execute();
+
+      setAuthCookies(reply, session.accessToken, session.refreshToken);
+
+      request.log.info({ userId: session.userId }, 'auth.demo_session_started');
+
+      return reply.status(201).send({
+        status: 'ok',
+        message: 'Demo session started',
+        expiresAt: session.expiresAt.toISOString(),
       });
     },
   });

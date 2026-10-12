@@ -1,0 +1,204 @@
+import { FastifyInstance } from 'fastify';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { buildApp } from '../../src/infrastructure/http/build-app';
+import { prisma } from '../../src/infrastructure/database/prisma-client';
+import { redis } from '../../src/infrastructure/cache/redis-client';
+import { VACCINE_CATALOG_CACHE_KEY } from '../../src/infrastructure/database/repositories/cached-vaccine.repository';
+import { VACCINE_CATALOG_SEED } from '../../prisma/vaccine-catalog-seed-data';
+import { DEMO_ACCOUNT_LIFETIME_MS } from '../../src/domain/user/user';
+
+function cookieValues(setCookieHeader: string | string[] | undefined): string[] {
+  return Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : [];
+}
+
+function extractCookieHeader(setCookieHeader: string | string[] | undefined): string {
+  return cookieValues(setCookieHeader).map((cookie) => cookie.split(';')[0]).join('; ');
+}
+
+function extractCsrfToken(setCookieHeader: string | string[] | undefined): string {
+  const csrfCookie = cookieValues(setCookieHeader).find((value) => value.startsWith('csrf_token='));
+  return csrfCookie ? csrfCookie.split(';')[0].split('=')[1] : '';
+}
+
+describe('Demo accounts', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildApp();
+    await app.ready();
+
+    for (const vaccine of VACCINE_CATALOG_SEED) {
+      await prisma.vaccine.upsert({
+        where: { scheduleVersion_code: { scheduleVersion: vaccine.scheduleVersion, code: vaccine.code } },
+        update: { isActive: true },
+        create: vaccine,
+      });
+    }
+
+    await redis.del(VACCINE_CATALOG_CACHE_KEY);
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await prisma.$disconnect();
+  });
+
+  beforeEach(async () => {
+    await prisma.user.deleteMany();
+  });
+
+  async function startDemo() {
+    const response = await app.inject({ method: 'POST', url: '/auth/demo' });
+    return {
+      response,
+      cookie: extractCookieHeader(response.headers['set-cookie']),
+      csrfToken: extractCsrfToken(response.headers['set-cookie']),
+    };
+  }
+
+  describe('POST /auth/demo', () => {
+    it('signs the caller into a new account that expires in 24 hours', async () => {
+      const before = Date.now();
+      const { response, cookie } = await startDemo();
+
+      expect(response.statusCode).toBe(201);
+      expect(cookieValues(response.headers['set-cookie']).map((value) => value.split('=')[0])).toEqual(
+        expect.arrayContaining(['access_token', 'refresh_token', 'csrf_token']),
+      );
+
+      const expiresAt = new Date(response.json().expiresAt).getTime();
+      expect(expiresAt).toBeGreaterThanOrEqual(before + DEMO_ACCOUNT_LIFETIME_MS);
+      expect(expiresAt).toBeLessThanOrEqual(Date.now() + DEMO_ACCOUNT_LIFETIME_MS);
+
+      const me = await app.inject({ method: 'GET', url: '/auth/me', headers: { cookie } });
+      expect(me.statusCode).toBe(200);
+      expect(me.json()).toMatchObject({
+        name: 'Marina Costa',
+        emailNotificationsEnabled: false,
+        demoExpiresAt: response.json().expiresAt,
+      });
+      expect(me.json().email).toMatch(/@demo\.cygnus\.invalid$/);
+    });
+
+    it('creates a separate account on every call, so visitors never share data', async () => {
+      const first = await startDemo();
+      const second = await startDemo();
+
+      const [firstMe, secondMe] = await Promise.all([
+        app.inject({ method: 'GET', url: '/auth/me', headers: { cookie: first.cookie } }),
+        app.inject({ method: 'GET', url: '/auth/me', headers: { cookie: second.cookie } }),
+      ]);
+
+      expect(firstMe.json().id).not.toBe(secondMe.json().id);
+      expect(await prisma.user.count({ where: { demoExpiresAt: { not: null } } })).toBe(2);
+    });
+
+    it('opens on a family the app can show: children, a mixed vaccine card, appointments, milestones', async () => {
+      const { cookie } = await startDemo();
+
+      const babies = await app.inject({ method: 'GET', url: '/babies', headers: { cookie } });
+      expect(babies.statusCode).toBe(200);
+      const names = (babies.json() as { name: string }[]).map((baby) => baby.name).sort();
+      expect(names).toEqual(['Helena', 'Theo']);
+
+      const helena = (babies.json() as { id: string; name: string }[]).find((baby) => baby.name === 'Helena')!;
+      const schedule = await app.inject({ method: 'GET', url: `/babies/${helena.id}/vaccines`, headers: { cookie } });
+      expect(schedule.statusCode).toBe(200);
+      const statuses = (schedule.json().groups as { items: { status: string }[] }[]).flatMap((group) =>
+        group.items.map((item) => item.status),
+      );
+      expect(statuses).toContain('APPLIED');
+      expect(statuses.filter((status) => status === 'DELAYED')).toHaveLength(1);
+      expect(statuses).toContain('PENDING');
+
+      const appointments = await app.inject({ method: 'GET', url: `/babies/${helena.id}/appointments`, headers: { cookie } });
+      expect(appointments.statusCode).toBe(200);
+      expect((appointments.json() as { status: string }[]).map((item) => item.status)).toEqual(
+        expect.arrayContaining(['COMPLETED', 'SCHEDULED']),
+      );
+
+      const milestones = await app.inject({ method: 'GET', url: `/babies/${helena.id}/milestones`, headers: { cookie } });
+      expect((milestones.json() as unknown[]).length).toBeGreaterThan(0);
+
+      const specialists = await app.inject({ method: 'GET', url: '/specialists', headers: { cookie } });
+      expect((specialists.json() as unknown[]).length).toBe(2);
+    });
+
+    it('lets the visitor record the overdue dose, which is why it is not a read-only account', async () => {
+      const { cookie, csrfToken } = await startDemo();
+      const babies = await app.inject({ method: 'GET', url: '/babies', headers: { cookie } });
+      const helena = (babies.json() as { id: string; name: string }[]).find((baby) => baby.name === 'Helena')!;
+      const schedule = await app.inject({ method: 'GET', url: `/babies/${helena.id}/vaccines`, headers: { cookie } });
+      const overdue = (schedule.json().groups as { items: { vaccineId: string; status: string }[] }[])
+        .flatMap((group) => group.items)
+        .find((item) => item.status === 'DELAYED')!;
+
+      const applied = await app.inject({
+        method: 'PATCH',
+        url: `/babies/${helena.id}/vaccines/${overdue.vaccineId}/apply`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: {},
+      });
+
+      expect(applied.statusCode).toBe(200);
+      const after = await app.inject({ method: 'GET', url: `/babies/${helena.id}/vaccines`, headers: { cookie } });
+      const statuses = (after.json().groups as { items: { status: string }[] }[]).flatMap((group) =>
+        group.items.map((item) => item.status),
+      );
+      expect(statuses).not.toContain('DELAYED');
+    });
+
+    it('cannot be renewed once it has expired, even before the sweep deletes it', async () => {
+      const { response } = await startDemo();
+      await prisma.user.updateMany({
+        where: { demoExpiresAt: { not: null } },
+        data: { demoExpiresAt: new Date(Date.now() - 1000) },
+      });
+
+      const refresh = await app.inject({
+        method: 'POST',
+        url: '/auth/refresh',
+        headers: { cookie: extractCookieHeader(response.headers['set-cookie']) },
+      });
+
+      expect(refresh.statusCode).toBe(401);
+    });
+
+    it('cannot become a permanent account by changing its address', async () => {
+      const { cookie, csrfToken } = await startDemo();
+
+      const changed = await app.inject({
+        method: 'PATCH',
+        url: '/users/me',
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { email: 'mine-now@example.com', currentPassword: 'any-guess-at-all' },
+      });
+
+      expect(changed.statusCode).toBe(400);
+      expect(await prisma.user.count({ where: { email: 'mine-now@example.com' } })).toBe(0);
+    });
+  });
+
+  describe('GET /auth/me for a real account', () => {
+    it('reports no demo expiry', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: { email: 'parent@example.com', password: 'S3cur3-Password', name: 'Jane Doe' },
+      });
+      const login = await app.inject({
+        method: 'POST',
+        url: '/auth/login',
+        payload: { email: 'parent@example.com', password: 'S3cur3-Password' },
+      });
+
+      const me = await app.inject({
+        method: 'GET',
+        url: '/auth/me',
+        headers: { cookie: extractCookieHeader(login.headers['set-cookie']) },
+      });
+
+      expect(me.json().demoExpiresAt).toBeNull();
+    });
+  });
+});
