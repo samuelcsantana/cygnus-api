@@ -16,6 +16,11 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    url: process.env['DATABASE_URL'],
+    // The CLI prefers a direct, non-pooled connection when one is configured.
+    // `migrate deploy` holds a session-level advisory lock, which PgBouncer's
+    // transaction pooling (Neon's `-pooler` host, what DATABASE_URL points at in
+    // production) cannot release reliably; a direct connection has no such gap.
+    // The application never reads this: it connects through DATABASE_URL.
+    url: process.env['DIRECT_DATABASE_URL'] || process.env['DATABASE_URL'],
   },
 });

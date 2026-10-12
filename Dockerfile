@@ -45,11 +45,14 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/dist-seed ./dist-seed
 COPY package.json ./
-# `prisma migrate deploy` in the CMD below reads the datasource URL from this
+# `prisma migrate deploy` in the start script reads the datasource URL from this
 # file, so it has to ship in the runtime image — without it the CLI has no
 # connection string at all.
 COPY prisma.config.ts ./
+# Migrate (retrying past a stale advisory lock — see the script), sync the
+# catalog, then `exec` the server so it receives the container's signals.
+COPY scripts/start.sh ./scripts/start.sh
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist-seed/prisma/seed.js && node dist/main.js"]
+CMD ["sh", "scripts/start.sh"]
