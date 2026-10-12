@@ -1,0 +1,3 @@
+# Shell scripts run inside the Linux container (scripts/start.sh is the image's
+# start command). A CRLF checkout on Windows would hand sh a "\r" on every line.
+*.sh text eol=lf
