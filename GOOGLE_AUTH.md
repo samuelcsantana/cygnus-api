@@ -9,7 +9,7 @@ in application URLs. The resulting session uses the existing HttpOnly cookies.
 ## Configure
 
 Create a **Web application** OAuth client in Google Cloud / Google Auth Platform.
-Configure the consent screen with the Ninho name, support email, authorized domain,
+Configure the consent screen with the Cygnus name, support email, authorized domain,
 and the public privacy policy and terms. While the consent screen is in testing,
 add the accounts that will exercise the flow as test users.
 

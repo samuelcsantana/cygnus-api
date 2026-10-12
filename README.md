@@ -1,4 +1,4 @@
-# Ninho API · Cygnus
+# Cygnus API
 
 [![CI](https://github.com/samuelcsantana/cygnus-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/samuelcsantana/cygnus-api/actions/workflows/ci.yml)
 [![Tests](https://github.com/samuelcsantana/cygnus-api/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/samuelcsantana/cygnus-api/actions/workflows/tests.yml)
@@ -12,7 +12,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)
 
-Backend for **Ninho**, a mobile-first application that helps families organize children's health and development records. **Cygnus** remains the repository, infrastructure and API contract name.
+Backend for **Cygnus**, a mobile-first application that helps families organize children's health and development records.
 
 [Live application](https://cygnus.samuelsantana.dev) · [Frontend repository](https://github.com/samuelcsantana/cygnus) · [OpenAPI contract](openapi.json) · [Coverage report](https://samuelcsantana.github.io/cygnus-api/)
 
@@ -26,7 +26,7 @@ Backend for **Ninho**, a mobile-first application that helps families organize c
 - Versioned legal document acceptance records.
 - Audit logging, request validation and a committed OpenAPI contract.
 
-Ninho is an organizational tool and does not replace professional healthcare advice.
+Cygnus is an organizational tool and does not replace professional healthcare advice.
 
 ## Architecture
 

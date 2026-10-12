@@ -1,7 +1,7 @@
 {
   "name": "cygnus-api",
   "version": "0.1.0",
-  "description": "Backend API for Ninho family health tracking",
+  "description": "Backend API for Cygnus family health tracking",
   "private": true,
   "license": "MIT",
   "main": "dist/main.js",
