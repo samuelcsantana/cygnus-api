@@ -32,8 +32,25 @@ export const currentUserResponseSchema = z
       .boolean()
       .describe('Whether the user wants to receive reminder emails (vaccines, appointments)'),
     createdAt: z.string().datetime(),
+    demoExpiresAt: z
+      .string()
+      .datetime()
+      .nullable()
+      .describe(
+        'When this account is deleted, if it is a disposable demo account started at POST /auth/demo; null for every ' +
+          'real account. Demo accounts are not asked to accept the privacy policy and terms, so the client skips ' +
+          'that gate for them; no acceptance is recorded on their behalf.',
+      ),
   })
   .describe('The authenticated user account');
+
+export const demoSessionResponseSchema = z
+  .object({
+    status: z.literal('ok'),
+    message: z.string(),
+    expiresAt: z.string().datetime().describe('When the demo account and everything in it are deleted'),
+  })
+  .describe('A demo account was created; its access and refresh tokens are set as HTTP-only cookies');
 
 export const authSuccessResponseSchema = z
   .object({

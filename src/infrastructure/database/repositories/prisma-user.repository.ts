@@ -11,6 +11,7 @@ function toDomain(record: {
   emailNotificationsEnabled: boolean;
   createdAt: Date;
   sessionVersion: number;
+  demoExpiresAt: Date | null;
 }): User {
   return User.fromPersistence({
     id: record.id,
@@ -21,6 +22,7 @@ function toDomain(record: {
     emailNotificationsEnabled: record.emailNotificationsEnabled,
     createdAt: record.createdAt,
     sessionVersion: record.sessionVersion,
+    demoExpiresAt: record.demoExpiresAt,
   });
 }
 
@@ -49,7 +51,12 @@ export class PrismaUserRepository implements UserRepository {
         emailNotificationsEnabled: user.emailNotificationsEnabled,
         createdAt: user.createdAt,
         sessionVersion: user.sessionVersion,
+        demoExpiresAt: user.demoExpiresAt,
       },
+      // `demoExpiresAt` is written on create and never here. Every edit rebuilds the entity through
+      // `User.create`, and one call site that forgot to carry the expiry over would quietly turn a
+      // disposable account into a permanent one. Leaving it out makes the column immutable instead
+      // of making every future call site responsible for it.
       update: {
         email: user.email,
         passwordHash: user.passwordHash,

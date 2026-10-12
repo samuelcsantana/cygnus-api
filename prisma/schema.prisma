@@ -22,6 +22,10 @@ model User {
   // Starts at 0 so tokens already in the wild, which carry no version claim at all, keep working.
   // Lives in Postgres, not Redis: a Key Value flush must never un-invalidate a session.
   sessionVersion            Int               @default(0) @map("session_version")
+  // Set only on the disposable accounts behind "try the demo", and the one column that says both
+  // things about them: non-null means demo, the value is when the sweep deletes it. Two columns
+  // (`is_demo` plus an expiry) could disagree; this one cannot. Null for every real account.
+  demoExpiresAt             DateTime?         @map("demo_expires_at")
   babies                    Baby[]
   notifications             Notification[]
   babyGuardianships         BabyGuardian[]
@@ -30,6 +34,7 @@ model User {
   specialistShares          SpecialistShare[]
   googleIdentity            GoogleIdentity?
 
+  @@index([demoExpiresAt])
   @@map("users")
 }
 

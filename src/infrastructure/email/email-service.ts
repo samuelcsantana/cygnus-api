@@ -1,6 +1,8 @@
 import { Resend } from 'resend';
 import { logger } from '../../shared/logging/logger';
 
+const UNDELIVERABLE_TLD = '.invalid';
+
 export interface SendEmailInput {
   to: string;
   subject: string;
@@ -47,6 +49,16 @@ export class EmailService implements ReminderEmailSender {
   }
 
   async send(input: SendEmailInput): Promise<void> {
+    // `.invalid` is reserved (RFC 2606) and never resolves, and it is where demo accounts live
+    // (`DEMO_EMAIL_DOMAIN`). Handing such an address to Resend buys a bounce on the sending
+    // domain's reputation and nothing else, and every path that mails "the account's own address" —
+    // reminders, deletion codes, a sign-in code requested for an address copied off a demo
+    // profile — would otherwise try.
+    if (input.to.trim().toLowerCase().endsWith(UNDELIVERABLE_TLD)) {
+      logger.info({ subject: input.subject }, 'email_service.skipped_undeliverable_address');
+      return;
+    }
+
     if (!this.client || !this.fromEmail) {
       logger.warn(
         { to: input.to, subject: input.subject },

@@ -601,6 +601,12 @@
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
+                    },
+                    "demoExpiresAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                      "description": "When this account is deleted, if it is a disposable demo account started at POST /auth/demo; null for every real account. Demo accounts are not asked to accept the privacy policy and terms, so the client skips that gate for them; no acceptance is recorded on their behalf."
                     }
                   },
                   "required": [
@@ -609,7 +615,8 @@
                     "name",
                     "avatarUrl",
                     "emailNotificationsEnabled",
-                    "createdAt"
+                    "createdAt",
+                    "demoExpiresAt"
                   ],
                   "additionalProperties": false,
                   "description": "The authenticated user account"
@@ -618,6 +625,104 @@
             }
           },
           "401": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The request could not be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The request could not be completed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/demo": {
+      "post": {
+        "summary": "Start a session in a new, disposable demo account",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Creates an account already holding a family (two children, their vaccine records, appointments, growth, milestones, medications and professionals), signs the caller into it with the same cookies /auth/login sets, and deletes it with everything in it 24 hours later. Each call makes a new account, so visitors never see each other's changes. The account has an undeliverable address and no usable password: its e-mail and password cannot be changed (both ask for the current password), so it cannot be turned into a permanent account, and it sends no e-mail. Limited to a few accounts per client per hour.",
+        "responses": {
+          "201": {
+            "description": "A demo account was created; its access and refresh tokens are set as HTTP-only cookies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "When the demo account and everything in it are deleted"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "message",
+                    "expiresAt"
+                  ],
+                  "additionalProperties": false,
+                  "description": "A demo account was created; its access and refresh tokens are set as HTTP-only cookies"
+                }
+              }
+            }
+          },
+          "429": {
             "description": "The request could not be completed",
             "content": {
               "application/json": {
@@ -1832,6 +1937,12 @@
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
+                    },
+                    "demoExpiresAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                      "description": "When this account is deleted, if it is a disposable demo account started at POST /auth/demo; null for every real account. Demo accounts are not asked to accept the privacy policy and terms, so the client skips that gate for them; no acceptance is recorded on their behalf."
                     }
                   },
                   "required": [
@@ -1840,7 +1951,8 @@
                     "name",
                     "avatarUrl",
                     "emailNotificationsEnabled",
-                    "createdAt"
+                    "createdAt",
+                    "demoExpiresAt"
                   ],
                   "additionalProperties": false,
                   "description": "The authenticated user account"

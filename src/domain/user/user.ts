@@ -1,6 +1,16 @@
 import { Email } from './email.vo';
 import { InvalidNameError } from './errors/invalid-name.error';
 
+/** How long a demo account lives before the hourly sweep deletes it, with everything it holds. */
+export const DEMO_ACCOUNT_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The domain every demo account's address is built on. `.invalid` is reserved by RFC 2606 and can
+ * never resolve, so nothing addressed there can be delivered — not by us, and not by anyone who
+ * copies the address off a demo profile into another form.
+ */
+export const DEMO_EMAIL_DOMAIN = 'demo.cygnus.invalid';
+
 export interface UserProps {
   id: string;
   email: string;
@@ -10,6 +20,7 @@ export interface UserProps {
   emailNotificationsEnabled: boolean;
   createdAt: Date;
   sessionVersion: number;
+  demoExpiresAt?: Date | null;
 }
 
 export class User {
@@ -25,6 +36,8 @@ export class User {
    * were minted under, so bumping it invalidates all of them at once without enumerating any.
    */
   readonly sessionVersion: number;
+  /** When the sweep deletes this account; null for every account a person actually owns. */
+  readonly demoExpiresAt: Date | null;
 
   private constructor(props: UserProps) {
     this.id = props.id;
@@ -35,6 +48,16 @@ export class User {
     this.emailNotificationsEnabled = props.emailNotificationsEnabled;
     this.createdAt = props.createdAt;
     this.sessionVersion = props.sessionVersion;
+    this.demoExpiresAt = props.demoExpiresAt ?? null;
+  }
+
+  get isDemo(): boolean {
+    return this.demoExpiresAt !== null;
+  }
+
+  /** True once a demo account has outlived its 24 hours, even if the sweep has not reached it yet. */
+  isExpiredDemoAt(now: Date): boolean {
+    return this.demoExpiresAt !== null && this.demoExpiresAt.getTime() <= now.getTime();
   }
 
   /**
@@ -75,6 +98,32 @@ export class User {
     });
   }
 
+  /**
+   * The disposable account behind "try the demo": a recruiter or a curious parent sees the app full
+   * of data without handing over an address, and the account deletes itself a day later.
+   *
+   * Everything that would tie it to a person is absent on purpose. The address is synthetic and
+   * undeliverable (`DEMO_EMAIL_DOMAIN`), reminder e-mails are off, and the password hash is derived
+   * by the caller from random bytes, so no password, code or link can sign into it again — or turn
+   * it into a permanent account, because changing the address or the password asks for the current
+   * password. The session handed out at creation is the only way in.
+   *
+   * It does get a name, unlike `createUnnamed`: the frontend asks an unnamed account what to call
+   * its owner, and a demo should open on the product, not on a form.
+   */
+  static createDemo(props: { id: string; passwordHash: string; name: string; now: Date }): User {
+    return new User({
+      id: props.id,
+      email: Email.create(`demo-${props.id}@${DEMO_EMAIL_DOMAIN}`).toString(),
+      passwordHash: props.passwordHash,
+      name: props.name,
+      emailNotificationsEnabled: false,
+      createdAt: props.now,
+      sessionVersion: 0,
+      demoExpiresAt: new Date(props.now.getTime() + DEMO_ACCOUNT_LIFETIME_MS),
+    });
+  }
+
   static create(props: {
     id: string;
     email: string;
@@ -84,6 +133,7 @@ export class User {
     emailNotificationsEnabled?: boolean;
     createdAt?: Date;
     sessionVersion?: number;
+    demoExpiresAt?: Date | null;
   }): User {
     const name = props.name.trim();
 
@@ -102,6 +152,7 @@ export class User {
       emailNotificationsEnabled: props.emailNotificationsEnabled ?? true,
       createdAt: props.createdAt ?? new Date(),
       sessionVersion: props.sessionVersion ?? 0,
+      demoExpiresAt: props.demoExpiresAt ?? null,
     });
   }
 }
