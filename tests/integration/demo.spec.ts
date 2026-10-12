@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { emailService } from '../../src/infrastructure/email/email-service.instance';
 import { buildApp } from '../../src/infrastructure/http/build-app';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
 import { redis } from '../../src/infrastructure/cache/redis-client';
@@ -162,6 +163,25 @@ describe('Demo accounts', () => {
       });
 
       expect(refresh.statusCode).toBe(401);
+    });
+
+    it('can invite a co-parent by code, but never makes the app mail the address it typed', async () => {
+      const sendInvite = vi.spyOn(emailService, 'sendGuardianInviteEmail');
+      const { cookie, csrfToken } = await startDemo();
+      const babies = await app.inject({ method: 'GET', url: '/babies', headers: { cookie } });
+      const helena = (babies.json() as { id: string; name: string }[]).find((baby) => baby.name === 'Helena')!;
+
+      const invite = await app.inject({
+        method: 'POST',
+        url: `/babies/${helena.id}/invites`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { inviteeEmail: 'someone-else@example.com' },
+      });
+
+      expect(invite.statusCode).toBe(201);
+      expect(invite.json().code).toEqual(expect.any(String));
+      expect(sendInvite).not.toHaveBeenCalled();
+      sendInvite.mockRestore();
     });
 
     it('cannot become a permanent account by changing its address', async () => {

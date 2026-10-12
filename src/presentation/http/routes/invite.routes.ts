@@ -90,7 +90,10 @@ export async function inviteRoutes(app: App) {
             userRepository.findById(request.userId),
           ]);
 
-          if (baby && inviter) {
+          // A demo session takes one click and proves nothing about who holds it, so it must not
+          // be a way to make this app mail an arbitrary address. The invite itself still works:
+          // the code comes back in the response, and the screen offers it to share by hand.
+          if (baby && inviter && !inviter.isDemo) {
             const inviteUrl = `${env.CORS_ORIGIN}/invites/${invite.code}`;
 
             emailService.sendGuardianInviteEmail(request.body.inviteeEmail, inviter.name, baby.name, inviteUrl).catch((error: unknown) => {
