@@ -22,7 +22,7 @@ const browserValue = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
 export async function googleAuthRoutes(app: App) {
   const signIn = new SignInWithGoogleUseCase(new PrismaGoogleIdentityRepository(prisma), new BcryptPasswordHasher(), tokenService);
-  const rateLimit = { max: env.NODE_ENV === 'test' ? 1000 : 10, timeWindow: '1 minute' };
+  const rateLimit = { max: env.rateLimits.authPerMinute, timeWindow: '1 minute' };
 
   app.get('/auth/google/status', {
     schema: { tags: ['Auth'], summary: 'Check Google sign-in availability', response: { 200: z.object({ enabled: z.boolean() }), 429: authErrorResponseSchema, 500: authErrorResponseSchema } },

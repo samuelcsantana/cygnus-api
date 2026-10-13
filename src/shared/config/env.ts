@@ -24,6 +24,12 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.union([z.string().url(), z.literal('')]).optional(),
+  // Per-client-IP request limits. Production sets none of these and gets the defaults in
+  // loadEnv. The compose stack raises them: it runs this production image locally, and the E2E
+  // suite signs up dozens of users from one address in a few minutes.
+  RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().optional(),
+  AUTH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().optional(),
+  DEMO_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().optional(),
 });
 
 function loadEnv() {
@@ -49,7 +55,20 @@ function loadEnv() {
     }
   }
 
-  return { ...parsed.data, secureCookies };
+  // Tests keep their own generous ceilings so a spec can sign in as often as it needs to; the
+  // limiter itself is exercised with the general limit, which keeps its production value.
+  const isTest = parsed.data.NODE_ENV === 'test';
+  const rateLimits = {
+    perMinute: parsed.data.RATE_LIMIT_PER_MINUTE ?? 100,
+    authPerMinute: parsed.data.AUTH_RATE_LIMIT_PER_MINUTE ?? (isTest ? 1000 : 10),
+    demoPerHour: parsed.data.DEMO_RATE_LIMIT_PER_HOUR ?? (isTest ? 1000 : 10),
+    relaxed:
+      parsed.data.RATE_LIMIT_PER_MINUTE !== undefined ||
+      parsed.data.AUTH_RATE_LIMIT_PER_MINUTE !== undefined ||
+      parsed.data.DEMO_RATE_LIMIT_PER_HOUR !== undefined,
+  };
+
+  return { ...parsed.data, secureCookies, rateLimits };
 }
 
 export const env = loadEnv();

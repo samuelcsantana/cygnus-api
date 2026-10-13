@@ -207,7 +207,7 @@ export async function userRoutes(app: App) {
     preHandler: authenticate,
     // Same ceiling as the assisted flows: this mails somebody, and the address is theirs, but a
     // loop hitting it is still a loop hitting a mailbox.
-    config: { rateLimit: { max: env.NODE_ENV === 'test' ? 1000 : 10, timeWindow: '1 minute' } },
+    config: { rateLimit: { max: env.rateLimits.authPerMinute, timeWindow: '1 minute' } },
     schema: {
       tags: ['Users'],
       summary: 'Mail a code that confirms deleting this account',

@@ -65,4 +65,30 @@ describe('env', () => {
       GOOGLE_CLIENT_ID: 'client-id',
     });
   });
+
+  it('keeps the production rate limits when none is configured', async () => {
+    const env = await loadEnvWith({
+      NODE_ENV: 'production',
+      RATE_LIMIT_PER_MINUTE: undefined,
+      AUTH_RATE_LIMIT_PER_MINUTE: undefined,
+      DEMO_RATE_LIMIT_PER_HOUR: undefined,
+    });
+
+    expect(env.rateLimits).toEqual({ perMinute: 100, authPerMinute: 10, demoPerHour: 10, relaxed: false });
+  });
+
+  it('takes the limits the compose stack sets, and says they were overridden', async () => {
+    const env = await loadEnvWith({
+      NODE_ENV: 'production',
+      RATE_LIMIT_PER_MINUTE: '1000',
+      AUTH_RATE_LIMIT_PER_MINUTE: '1000',
+      DEMO_RATE_LIMIT_PER_HOUR: '1000',
+    });
+
+    expect(env.rateLimits).toEqual({ perMinute: 1000, authPerMinute: 1000, demoPerHour: 1000, relaxed: true });
+  });
+
+  it.each(['0', '-5', 'many'])('refuses a rate limit of %j, naming the variable', async (value) => {
+    await expect(loadEnvWith({ AUTH_RATE_LIMIT_PER_MINUTE: value })).rejects.toThrow(/AUTH_RATE_LIMIT_PER_MINUTE/);
+  });
 });

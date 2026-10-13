@@ -47,6 +47,13 @@ services:
       # This compose file runs the production image locally over plain HTTP (no TLS terminator),
       # so auth cookies must not be marked Secure or the browser silently refuses to store them.
       SECURE_COOKIES: 'false'
+      # Production keeps 100 requests a minute, 10 sign-in attempts a minute and 10 demos an hour per
+      # IP. Locally everything comes from one address, and the E2E suite signs up dozens of users in
+      # a few minutes: at the production limits a parallel run drew 94 refusals on 2026-10-12. The
+      # API logs `rate_limits.overridden` at boot whenever these are set.
+      RATE_LIMIT_PER_MINUTE: '1000'
+      AUTH_RATE_LIMIT_PER_MINUTE: '1000'
+      DEMO_RATE_LIMIT_PER_HOUR: '1000'
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
     ports:
