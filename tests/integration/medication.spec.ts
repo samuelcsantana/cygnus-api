@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
@@ -248,6 +249,57 @@ describe('Medication routes', () => {
       });
 
       expect(listResponse.json()).toEqual([]);
+    });
+  });
+
+  describe('error responses', () => {
+    it('answers 404 for the medications of a baby the caller cannot see', async () => {
+      const owner = await registerAndLogin('medication-hidden-owner@example.com');
+      const babyId = await createBaby(owner.cookie, owner.csrfToken);
+      const stranger = await registerAndLogin('medication-hidden-stranger@example.com');
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/medications`,
+        headers: { cookie: stranger.cookie, 'x-csrf-token': stranger.csrfToken },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    // The schema cannot compare an edit with what is stored, so this is the domain's check.
+    it('rejects an edit that would end the course before it started', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('medication-backwards-edit@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+      const created = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/medications`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { name: 'Vitamina D', startedOn: '2026-01-10' },
+      });
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/babies/${babyId}/medications/${created.json().id}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { endedOn: '2026-01-01' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect((await prisma.medication.findUniqueOrThrow({ where: { id: created.json().id } })).endedOn).toBeNull();
+    });
+
+    it('answers 404 when deleting a medication that does not exist', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('medication-delete-missing@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}/medications/${randomUUID()}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+
+      expect(response.statusCode).toBe(404);
     });
   });
 });

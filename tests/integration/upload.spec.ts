@@ -188,4 +188,33 @@ describe('Upload routes', () => {
       expect(openApiDocument.paths['/uploads/milestone-photos'].post.tags).toContain('Uploads');
     });
   });
+
+  it('rejects a request that is not multipart/form-data with 400', async () => {
+    const { cookie, csrfToken } = await registerAndLogin('upload-not-multipart@example.com');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/uploads/milestone-photos',
+      headers: { cookie, 'x-csrf-token': csrfToken },
+      payload: { photo: 'not a file' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toBe('Request must be multipart/form-data');
+  });
+
+  it('rejects a file sent under a field other than "photo" with 400', async () => {
+    const { cookie, csrfToken } = await registerAndLogin('upload-wrong-field@example.com');
+    const boundary = '----cygnus-wrong-field';
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/uploads/milestone-photos',
+      headers: { cookie, 'x-csrf-token': csrfToken, 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: buildMultipartBody(boundary, 'image', 'smile.png', 'image/png', Buffer.from([0x89, 0x50, 0x4e, 0x47])),
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toBe('Missing "photo" file field');
+  });
 });

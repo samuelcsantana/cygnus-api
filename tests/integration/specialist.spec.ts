@@ -285,4 +285,19 @@ describe('Specialist routes', () => {
       expect(appointments[0].specialistId).toBeNull();
     });
   });
+
+  it('rejects renaming a professional to blank space with 400', async () => {
+    const session = await registerAndLogin('specialist-blank-rename@example.com');
+    const created = await createSpecialist(session, {});
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/specialists/${created.json().id}`,
+      headers: { cookie: session.cookie, 'x-csrf-token': session.csrfToken },
+      payload: { name: '   ' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect((await prisma.specialist.findUniqueOrThrow({ where: { id: created.json().id } })).name).toBe('Dra. Fernanda Lima');
+  });
 });

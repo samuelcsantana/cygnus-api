@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
@@ -406,5 +407,18 @@ describe('Invite/guardian routes', () => {
     expect(openApiDocument.paths['/invites/{code}/redeem'].post.tags).toContain('Guardians');
     expect(openApiDocument.paths['/babies/{babyId}/guardians'].get.tags).toContain('Guardians');
     expect(openApiDocument.paths['/babies/{babyId}/guardians/{userId}'].delete.tags).toContain('Guardians');
+  });
+
+  it('answers 404 when removing someone who is not a guardian of the baby', async () => {
+    const { cookie, csrfToken } = await registerAndLogin('remove-non-guardian-owner@example.com');
+    const babyId = await createBaby(cookie, csrfToken);
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/babies/${babyId}/guardians/${randomUUID()}`,
+      headers: { cookie, 'x-csrf-token': csrfToken },
+    });
+
+    expect(response.statusCode).toBe(404);
   });
 });

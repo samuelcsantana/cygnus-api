@@ -344,6 +344,60 @@ describe('User profile routes', () => {
     });
   });
 
+  it('rejects a profile update with no field in it with 400', async () => {
+    const { cookie, csrfToken } = await registerAndLogin('empty-patch@example.com');
+
+    const response = await app.inject({ method: 'PATCH', url: '/users/me', headers: { cookie, 'x-csrf-token': csrfToken }, payload: {} });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('exports dated measurements and appointments along with the rest', async () => {
+    const { cookie, csrfToken } = await registerAndLogin('export-measurements@example.com');
+    const headers = { cookie, 'x-csrf-token': csrfToken };
+    const baby = await app.inject({
+      method: 'POST',
+      url: '/babies',
+      headers,
+      payload: { name: 'Theo', birthDate: '2024-01-01', measurement: { measuredOn: '2024-02-01', weightGrams: 4300, heightMillimeters: 545 } },
+    });
+    const babyId = baby.json().id;
+    await app.inject({
+      method: 'POST',
+      url: `/babies/${babyId}/appointments`,
+      headers,
+      payload: { scheduledAt: '2099-03-01T10:00:00.000Z', doctorName: 'Dr. Paulo Mendes' },
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/users/me/export', headers });
+
+    expect(response.statusCode).toBe(200);
+    const [exported] = response.json().babies;
+    expect(exported.profile.measurements).toEqual([expect.objectContaining({ measuredOn: '2024-02-01', weightGrams: 4300, heightMillimeters: 545 })]);
+    expect(exported.appointments).toEqual([expect.objectContaining({ doctorName: 'Dr. Paulo Mendes', status: 'SCHEDULED' })]);
+  });
+
+  // An access token is not checked against the database on each request, so it outlives an account
+  // deleted elsewhere by up to its 15 minutes. The routes that load the account must then answer as
+  // if the caller were signed out, not as a server failure.
+  describe('a session whose account no longer exists', () => {
+    it.each([
+      ['PATCH', '/users/me', { name: 'Ghost' }],
+      ['GET', '/users/me/export', undefined],
+      ['POST', '/users/me/deletion-code', undefined],
+      ['DELETE', '/users/me', { currentPassword: 'S3cur3-Password' }],
+    ] as const)('%s %s answers 401', async (method, url, payload) => {
+      const email = `ghost-${method.toLowerCase()}-${url.split('/').pop()}@example.com`;
+      const { cookie, csrfToken } = await registerAndLogin(email);
+      await prisma.user.delete({ where: { email } });
+
+      const response = await app.inject({ method, url, headers: { cookie, 'x-csrf-token': csrfToken }, ...(payload ? { payload } : {}) });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({ status: 'error', message: 'Authentication required' });
+    });
+  });
+
   it('exposes all user routes in the generated OpenAPI document', async () => {
     const response = await app.inject({ method: 'GET', url: '/docs/json' });
     const openApiDocument = response.json();

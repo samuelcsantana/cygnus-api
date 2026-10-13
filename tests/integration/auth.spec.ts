@@ -577,4 +577,32 @@ describe('Auth routes', () => {
     expect(openApiDocument.paths['/auth/me']).toBeDefined();
     expect(openApiDocument.paths['/auth/me'].get.tags).toContain('Auth');
   });
+
+  it('rejects a name that is only blank space with 400', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: { email: 'blank-name@example.com', password: 'S3cur3-Password', name: '   ' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(await prisma.user.count({ where: { email: 'blank-name@example.com' } })).toBe(0);
+  });
+
+  it('answers 401 to an access cookie that is not a token this server signed', async () => {
+    const response = await app.inject({ method: 'GET', url: '/auth/me', headers: { cookie: 'access_token=forged.jwt.value' } });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  // A code is issued and handed to the mailer for a registered address; the answer is the same 200
+  // an unknown address gets, which is the point of the assisted flows.
+  it('mails a reset code to a registered address and answers like it does for anyone', async () => {
+    await registerAndLogin('reset-request@example.com');
+
+    const response = await app.inject({ method: 'POST', url: '/auth/password-reset/request', payload: { email: 'reset-request@example.com' } });
+
+    expect(response.statusCode).toBe(200);
+    expect(await verificationCodeService.consume('password-reset', 'reset-request@example.com', '000000')).not.toBe('not-found');
+  });
 });

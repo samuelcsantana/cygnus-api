@@ -561,4 +561,22 @@ describe('Vaccine routes', () => {
     expect(openApiDocument.paths['/babies/{babyId}/vaccines/adhoc'].post.tags).toContain('Vaccines');
     expect(openApiDocument.paths['/babies/{babyId}/vaccines/adhoc/{recordId}'].delete.tags).toContain('Vaccines');
   });
+
+  // A recurring recommendation (yearly flu, for instance) has no single catalogue dose to mark; each
+  // shot is its own ad hoc record. Marking the catalogue row would hide every later year.
+  it('refuses to mark a recurring recommendation as applied, pointing to an ad hoc record', async () => {
+    const { cookie, csrfToken } = await registerAndLogin('parent-recurring-apply@example.com');
+    const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+    const recurring = await prisma.vaccine.findFirstOrThrow({ where: { recommendationKind: 'RECURRING' } });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/babies/${babyId}/vaccines/${recurring.id}/apply`,
+      headers: { cookie, 'x-csrf-token': csrfToken },
+      payload: { applicationDate: '2024-06-01' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(await prisma.babyVaccineRecord.count({ where: { babyId, vaccineId: recurring.id } })).toBe(0);
+  });
 });
