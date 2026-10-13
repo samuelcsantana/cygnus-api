@@ -421,4 +421,24 @@ describe('Invite/guardian routes', () => {
 
     expect(response.statusCode).toBe(404);
   });
+
+  // An invite is a bearer secret shared over chat. Past its expiry it must stop working even if
+  // the link is still sitting in someone's messages.
+  it('answers 410 to an invite redeemed after it expired, and grants nothing', async () => {
+    const owner = await registerAndLogin('redeem-expired-owner@example.com');
+    const latecomer = await registerAndLogin('redeem-expired-latecomer@example.com');
+    const babyId = await createBaby(owner.cookie, owner.csrfToken);
+    const { code } = await createInvite(owner.cookie, owner.csrfToken, babyId);
+    await prisma.babyInvite.update({ where: { code }, data: { expiresAt: new Date(Date.now() - 1000) } });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/invites/${code}/redeem`,
+      headers: { cookie: latecomer.cookie, 'x-csrf-token': latecomer.csrfToken },
+    });
+
+    expect(response.statusCode).toBe(410);
+    expect(response.json().message).toBe('Invite has expired');
+    expect(await prisma.babyGuardian.count({ where: { babyId } })).toBe(1);
+  });
 });

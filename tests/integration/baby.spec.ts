@@ -421,4 +421,18 @@ describe('Baby routes', () => {
     expect(openApiDocument.paths['/babies/{babyId}'].patch.tags).toContain('Babies');
     expect(openApiDocument.paths['/babies/{babyId}'].delete.tags).toContain('Babies');
   });
+
+  it('rejects a name that is only blank space with 400', async () => {
+    const { cookie, csrfToken } = await registerAndLogin('baby-blank-name@example.com');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/babies',
+      headers: { cookie, 'x-csrf-token': csrfToken },
+      payload: { name: '   ', birthDate: '2024-03-10' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(await prisma.baby.count()).toBe(0);
+  });
 });
