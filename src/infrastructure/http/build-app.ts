@@ -126,7 +126,7 @@ export async function buildApp() {
       info: {
         title: 'Cygnus API',
         description: 'Backend API for Cygnus family health tracking',
-        version: '0.2.0',
+        version: '0.2.1',
       },
       tags: [
         { name: 'Health', description: 'Infrastructure health checks' },
