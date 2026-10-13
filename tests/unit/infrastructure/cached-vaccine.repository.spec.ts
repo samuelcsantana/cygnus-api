@@ -52,7 +52,7 @@ describe('CachedVaccineRepository', () => {
     expect(inner.findAll).toHaveBeenCalledTimes(1);
     expect(cache.set).toHaveBeenCalledWith(VACCINE_CATALOG_CACHE_KEY, JSON.stringify(vaccines), 'EX', 3600);
     expect(vaccines).toHaveLength(1);
-    expect(vaccines[0].name).toBe('BCG');
+    expect(vaccines[0]?.name).toBe('BCG');
   });
 
   it('returns cached vaccines without touching the inner repository on a hit', async () => {
@@ -81,7 +81,7 @@ describe('CachedVaccineRepository', () => {
     expect(inner.findAll).not.toHaveBeenCalled();
     expect(cache.set).not.toHaveBeenCalled();
     expect(vaccines).toHaveLength(1);
-    expect(vaccines[0].name).toBe('BCG');
+    expect(vaccines[0]?.name).toBe('BCG');
   });
 
   it('treats an empty cached catalog as a miss and does not cache an empty database result', async () => {

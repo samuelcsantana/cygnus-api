@@ -1,4 +1,3 @@
-import { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
@@ -10,7 +9,7 @@ import { prisma } from '../../src/infrastructure/database/prisma-client';
  * before dispatch, and the thing under test is that the response says whose fault it was.
  */
 describe('error handling', () => {
-  let app: FastifyInstance;
+  let app: Awaited<ReturnType<typeof buildApp>>;
 
   beforeAll(async () => {
     app = await buildApp();
@@ -68,7 +67,7 @@ describe('error handling', () => {
 // Its own app: the limiter keeps its counts in memory per instance and inject always comes from
 // 127.0.0.1, so the 101st request here would throttle every later test sharing the instance.
 describe('error handling of the rate limiter', () => {
-  let app: FastifyInstance;
+  let app: Awaited<ReturnType<typeof buildApp>>;
 
   beforeAll(async () => {
     app = await buildApp();

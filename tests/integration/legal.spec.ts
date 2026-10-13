@@ -1,10 +1,10 @@
-import { FastifyInstance } from 'fastify';
+import type { InjectOptions } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
 
 describe('Legal acceptance routes', () => {
-  let app: FastifyInstance;
+  let app: Awaited<ReturnType<typeof buildApp>>;
 
   beforeAll(async () => {
     app = await buildApp();
@@ -23,13 +23,13 @@ describe('Legal acceptance routes', () => {
 
   function extractCookieHeader(setCookieHeader: string | string[] | undefined): string {
     const values = Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : [];
-    return values.map((cookie) => cookie.split(';')[0]).join('; ');
+    return values.map((cookie) => cookie.split(';')[0] ?? '').join('; ');
   }
 
   function extractCsrfToken(setCookieHeader: string | string[] | undefined): string {
     const values = Array.isArray(setCookieHeader) ? setCookieHeader : setCookieHeader ? [setCookieHeader] : [];
     const csrfCookie = values.find((value) => value.startsWith('csrf_token='));
-    return csrfCookie ? csrfCookie.split(';')[0].split('=')[1] : '';
+    return csrfCookie?.split(';')[0]?.split('=')[1] ?? '';
   }
 
   async function registerAndLogin(email: string): Promise<{ cookie: string; csrfToken: string }> {
@@ -51,7 +51,7 @@ describe('Legal acceptance routes', () => {
     };
   }
 
-  const accept = (auth: { cookie: string; csrfToken: string }, payload: unknown) =>
+  const accept = (auth: { cookie: string; csrfToken: string }, payload: InjectOptions['payload']) =>
     app.inject({
       method: 'POST',
       url: '/legal/acceptances',

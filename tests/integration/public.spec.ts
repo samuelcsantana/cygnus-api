@@ -1,4 +1,3 @@
-import { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
@@ -7,7 +6,7 @@ import { publicVaccineScheduleResponseSchema } from '../../src/presentation/http
 const FOREIGN_ORIGIN = 'https://www.samuelsantana.dev';
 
 describe('GET /public/vaccine-schedule', () => {
-  let app: FastifyInstance;
+  let app: Awaited<ReturnType<typeof buildApp>>;
 
   beforeAll(async () => {
     app = await buildApp();

@@ -84,7 +84,7 @@ describe('ResetPasswordUseCase', () => {
 
     await useCase.execute({ email: 'parent@example.com', code: '123456', password: 'A-New-Password' });
 
-    const savedUser = (userRepository.save as ReturnType<typeof vi.fn>).mock.calls[0][0] as User;
+    const savedUser = (userRepository.save as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as User;
     expect(savedUser.sessionVersion).toBe(existingUser.sessionVersion + 1);
     expect(tokenService.generateTokenPair).toHaveBeenCalledWith('user-id', existingUser.sessionVersion + 1);
   });

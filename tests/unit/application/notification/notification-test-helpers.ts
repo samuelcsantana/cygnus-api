@@ -80,6 +80,7 @@ export function buildBabyRepository(overrides: Partial<BabyRepository> = {}): Ba
     findAllByUserId: vi.fn().mockResolvedValue([]),
     findAll: vi.fn().mockResolvedValue([buildBaby()]),
     save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -114,9 +115,12 @@ export function buildBabyVaccineRecordRepository(
   overrides: Partial<BabyVaccineRecordRepository> = {},
 ): BabyVaccineRecordRepository {
   return {
+    findById: vi.fn().mockResolvedValue(null),
     findAllByBabyId: vi.fn().mockResolvedValue([]),
     findByBabyAndVaccine: vi.fn().mockResolvedValue(null),
     save: vi.fn().mockResolvedValue(undefined),
+    create: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -137,6 +141,7 @@ export function buildAppointmentRepository(overrides: Partial<AppointmentReposit
     findById: vi.fn().mockResolvedValue(null),
     findAllByBabyId: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

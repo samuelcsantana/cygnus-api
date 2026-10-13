@@ -10,6 +10,7 @@ function buildUserRepository(overrides: Partial<UserRepository> = {}): UserRepos
     findByEmail: vi.fn().mockResolvedValue(null),
     findById: vi.fn().mockResolvedValue(null),
     save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

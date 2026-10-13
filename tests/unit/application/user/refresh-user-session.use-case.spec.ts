@@ -11,6 +11,7 @@ function buildUserRepository(overrides: Partial<UserRepository> = {}): UserRepos
     findByEmail: vi.fn().mockResolvedValue(null),
     findById: vi.fn().mockResolvedValue(null),
     save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -66,7 +67,7 @@ describe('RefreshUserSessionUseCase', () => {
     await useCase.execute('valid-refresh-token');
 
     expect(tokenRevocationService.revoke).toHaveBeenCalledWith('old-jti', expect.any(Number));
-    const ttl = (tokenRevocationService.revoke as ReturnType<typeof vi.fn>).mock.calls[0][1] as number;
+    const ttl = (tokenRevocationService.revoke as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as number;
     expect(ttl).toBeGreaterThan(0);
   });
 

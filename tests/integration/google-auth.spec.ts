@@ -8,7 +8,7 @@ import { prisma } from '../../src/infrastructure/database/prisma-client';
 import { env } from '../../src/shared/config/env';
 
 describe('Google sign-in', () => {
-  let app: FastifyInstance;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   const original = { GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI: env.GOOGLE_REDIRECT_URI };
   const subject = 'google-subject-123';
   beforeAll(async () => { app = await buildApp(); await app.ready(); });
@@ -35,7 +35,7 @@ describe('Google sign-in', () => {
     const verify = vi.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue(new LoginTicket(undefined, {
       iss: 'https://accounts.google.com', aud: 'test-client', sub: subject, iat: 1, exp: 9999999999,
       email: 'parent@gmail.com', email_verified: true, name: 'Google Parent', nonce, ...overrides,
-    }));
+    }) as never);
     return { exchange, verify };
   }
   async function finish(flow: Awaited<ReturnType<typeof begin>>, overrides = {}) {

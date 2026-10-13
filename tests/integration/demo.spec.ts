@@ -1,4 +1,3 @@
-import { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emailService } from '../../src/infrastructure/email/email-service.instance';
 import { buildApp } from '../../src/infrastructure/http/build-app';
@@ -20,11 +19,11 @@ function extractCookieHeader(setCookieHeader: string | string[] | undefined): st
 
 function extractCsrfToken(setCookieHeader: string | string[] | undefined): string {
   const csrfCookie = cookieValues(setCookieHeader).find((value) => value.startsWith('csrf_token='));
-  return csrfCookie ? csrfCookie.split(';')[0].split('=')[1] : '';
+  return csrfCookie?.split(';')[0]?.split('=')[1] ?? '';
 }
 
 describe('Demo accounts', () => {
-  let app: FastifyInstance;
+  let app: Awaited<ReturnType<typeof buildApp>>;
 
   beforeAll(async () => {
     app = await buildApp();
@@ -218,6 +217,7 @@ describe('Demo accounts', () => {
           (await app.inject({ method: 'GET', url: '/auth/me', headers: { cookie } })).json().id as string,
         ),
       );
+      if (!expiredId || !liveId) throw new Error('Both demo sessions should resolve to an account');
       await prisma.user.update({ where: { id: expiredId }, data: { demoExpiresAt: new Date(Date.now() - 1000) } });
       await prisma.auditLog.createMany({
         data: [expiredId, realUser.id].map((userId) => ({
