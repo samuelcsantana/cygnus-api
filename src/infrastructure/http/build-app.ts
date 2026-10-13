@@ -102,7 +102,12 @@ export async function buildApp() {
 
     callback(null, { origin: env.CORS_ORIGIN, credentials: true });
   });
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
+  await app.register(rateLimit, { max: env.rateLimits.perMinute, timeWindow: '1 minute' });
+  // Loud on purpose: the overrides exist for the local compose stack, and the same image runs in
+  // production, where a stray variable would quietly lift the brakes on sign-in attempts.
+  if (env.rateLimits.relaxed) {
+    logger.warn({ rateLimits: env.rateLimits }, 'rate_limits.overridden');
+  }
   await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } });
 

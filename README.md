@@ -189,7 +189,11 @@ docker compose up -d --build
 The container is the production image: it applies pending migrations on start, serves no `/docs`,
 and needs a rebuild after every source change. Compose sets `SECURE_COOKIES=false` because it runs
 over plain HTTP; without it the browser drops the `Secure` cookies and every request after the login
-is a 401. Compose does not start the frontend, which lives at `http://localhost:4205` (see the
+is a 401. It also raises the per-IP rate limits (`RATE_LIMIT_PER_MINUTE`,
+`AUTH_RATE_LIMIT_PER_MINUTE`, `DEMO_RATE_LIMIT_PER_HOUR`), since every local request comes from one
+address and the frontend's E2E suite signs up many users at once; production sets none and keeps
+100 requests and 10 sign-in attempts a minute, and 10 demos an hour. The API logs
+`rate_limits.overridden` at boot whenever they are set. Compose does not start the frontend, which lives at `http://localhost:4205` (see the
 [frontend repository](https://github.com/samuelcsantana/cygnus)).
 
 [Google sign-in setup](GOOGLE_AUTH.md) covers the credentials, the callback URLs and how a Google

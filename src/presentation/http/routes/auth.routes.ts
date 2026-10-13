@@ -42,14 +42,14 @@ import {
 
 // Tighter than the global 100/min (build-app.ts) — these routes are the highest-value brute-force
 // targets (credential stuffing on login, account enumeration on register, token guessing on refresh).
-// Relaxed under NODE_ENV=test: the integration suite legitimately registers/logs in far more than
-// 10 times per minute across a single spec file sharing one in-memory rate-limit store.
-const AUTH_RATE_LIMIT = { max: env.NODE_ENV === 'test' ? 1000 : 10, timeWindow: '1 minute' };
+// 10 a minute in production. The value lives in env.ts (`rateLimits`): relaxed under NODE_ENV=test,
+// where a spec signs in far more often than that, and in the local compose stack.
+const AUTH_RATE_LIMIT = { max: env.rateLimits.authPerMinute, timeWindow: '1 minute' };
 
 // Each demo is an account with about seventy rows behind it, kept for a day. A person exploring the
 // app clicks it once or twice; ten an hour from one address is already somebody filling the
 // database, and that is where the limit sits.
-const DEMO_RATE_LIMIT = { max: env.NODE_ENV === 'test' ? 1000 : 10, timeWindow: '1 hour' };
+const DEMO_RATE_LIMIT = { max: env.rateLimits.demoPerHour, timeWindow: '1 hour' };
 
 export async function authRoutes(app: App) {
   const userRepository = new PrismaUserRepository(prisma);
