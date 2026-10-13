@@ -34,6 +34,12 @@ function verificationCodeHtml(parts: { heading: string; intro: string; code: str
     `.trim();
 }
 
+// The web stores an appointment as the real instant (the parent's local time converted to UTC), and
+// the server does not know each parent's time zone. Brasília time is the reference the PNI schedule
+// and most of the country use, so reminders are written in it and say so, which leaves a parent in
+// Manaus or Rio Branco a clear label to adjust from instead of a silently shifted hour.
+const REMINDER_TIME_ZONE = 'America/Sao_Paulo';
+
 // Thin wrapper around the Resend SDK, kept generic (`send`) so it can be reused for anything
 // transactional — guardian invites today, reminder emails later (vaccines/appointments), without
 // changing this class. Template-specific methods (like `sendGuardianInviteEmail` below) just build
@@ -164,11 +170,11 @@ export class EmailService implements ReminderEmailSender {
   }
 
   async sendAppointmentReminderEmail(to: string, babyName: string, doctorName: string, scheduledAt: Date): Promise<void> {
-    const formattedDate = scheduledAt.toLocaleString('pt-BR', { timeZone: 'UTC', dateStyle: 'short', timeStyle: 'short' });
+    const formattedDate = scheduledAt.toLocaleString('pt-BR', { timeZone: REMINDER_TIME_ZONE, dateStyle: 'short', timeStyle: 'short' });
     const html = `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #1f2933;">
         <h1 style="color: #2A9D8F; font-size: 20px;">Consulta próxima de ${babyName}</h1>
-        <p>${babyName} tem consulta marcada com <strong>${doctorName}</strong> em <strong>${formattedDate}</strong>.</p>
+        <p>${babyName} tem consulta marcada com <strong>${doctorName}</strong> em <strong>${formattedDate}</strong> (horário de Brasília).</p>
         <p>Acesse o Cygnus para ver mais detalhes ou reagendar, se necessário.</p>
         <p style="font-size: 13px; color: #6b7280;">Você está recebendo este e-mail porque é responsável por ${babyName} no Cygnus. Você pode desativar lembretes por e-mail nas configurações do seu perfil.</p>
       </div>

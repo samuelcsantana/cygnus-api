@@ -61,4 +61,17 @@ describe('EmailService.send', () => {
     expect(message.subject).toBe('Vacina atrasada: VIP (Poliomielite inativada) (Helena)');
     expect(message.html).toContain('<strong>VIP (Poliomielite inativada)</strong> de Helena');
   });
+
+  // The web stores 10:00 in São Paulo as 13:00 UTC. Formatted in UTC, the reminder told the parent
+  // to come three hours late.
+  it('writes the appointment time in Brasília time, and says so', async () => {
+    const service = new EmailService('re_test_key', 'Cygnus <noreply@example.com>');
+
+    await service.sendAppointmentReminderEmail('parent@example.com', 'Helena', 'Dra. Ana Ribeiro', new Date('2026-10-14T13:00:00.000Z'));
+
+    const [message] = sendMock.mock.calls[0] as [{ subject: string; html: string }];
+    expect(message.subject).toBe('Consulta próxima: Helena com Dra. Ana Ribeiro');
+    expect(message.html).toContain('<strong>14/10/2026, 10:00</strong> (horário de Brasília)');
+    expect(message.html).not.toContain('13:00');
+  });
 });
