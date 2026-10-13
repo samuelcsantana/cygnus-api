@@ -1,53 +1,172 @@
+<a href="https://github.com/samuelcsantana/cygnus-api"><img src=".github/assets/cover.webp" alt="Cygnus API: sessions, schedules and reminders, behind one contract. A terminal shows a real call to the demo endpoint, and a card shows the four architecture layers." width="100%"></a>
+
+<p align="center">
+  <a href="https://cygnus.samuelsantana.dev"><b>Live application</b></a> (try the demo, no sign-up) ·
+  <a href="https://github.com/samuelcsantana/cygnus">Frontend repository</a> ·
+  <a href="openapi.json">OpenAPI contract</a> ·
+  <a href="https://samuelcsantana.github.io/cygnus-api/">Coverage report</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/samuelcsantana/cygnus-api/actions/workflows/ci.yml"><img src="https://github.com/samuelcsantana/cygnus-api/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/samuelcsantana/cygnus-api/actions/workflows/tests.yml"><img src="https://github.com/samuelcsantana/cygnus-api/actions/workflows/tests.yml/badge.svg?branch=main" alt="Tests"></a>
+  <a href="https://github.com/samuelcsantana/cygnus-api/actions/workflows/security.yml"><img src="https://github.com/samuelcsantana/cygnus-api/actions/workflows/security.yml/badge.svg?branch=main" alt="Security"></a>
+  <a href="https://samuelcsantana.github.io/cygnus-api/"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fsamuelcsantana.github.io%2Fcygnus-api%2Fbadge.json" alt="API line coverage"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/samuelcsantana/cygnus-api" alt="MIT License"></a>
+</p>
+
 # Cygnus API
 
-[![CI](https://github.com/samuelcsantana/cygnus-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/samuelcsantana/cygnus-api/actions/workflows/ci.yml)
-[![Tests](https://github.com/samuelcsantana/cygnus-api/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/samuelcsantana/cygnus-api/actions/workflows/tests.yml)
-[![Security](https://github.com/samuelcsantana/cygnus-api/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/samuelcsantana/cygnus-api/actions/workflows/security.yml)
-[![MIT License](https://img.shields.io/github/license/samuelcsantana/cygnus-api)](LICENSE)
-[![API line coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fsamuelcsantana.github.io%2Fcygnus-api%2Fbadge.json)](https://samuelcsantana.github.io/cygnus-api/)
+The backend of [Cygnus](https://github.com/samuelcsantana/cygnus), a mobile-first app where
+parents keep their children's health record: Brazil's PNI vaccine schedule, appointments, growth,
+developmental milestones, medications, professionals and health plans, shared with every person who
+helps care.
 
-![Fastify 5](https://img.shields.io/badge/Fastify-5-000000?logo=fastify)
-![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
-![Prisma 7](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)
+It serves the Cygnus web app and one public endpoint, the PNI schedule, which any website can show
+through the app's embeddable widget. Fastify 5 and strict TypeScript, Prisma 7 on PostgreSQL, Redis
+and BullMQ, in a pragmatic Clean Architecture. Every route is described by Zod schemas, and those
+schemas produce the [OpenAPI contract](openapi.json) that the frontend checks in its own CI.
 
-Backend for **Cygnus**, a mobile-first application that helps families organize children's health and development records.
+Cygnus organizes information. It does not replace advice from healthcare professionals.
 
-[Live application](https://cygnus.samuelsantana.dev) · [Frontend repository](https://github.com/samuelcsantana/cygnus) · [OpenAPI contract](openapi.json) · [Coverage report](https://samuelcsantana.github.io/cygnus-api/)
+## What is worth reading here
 
-## Features
+The decisions below are the ones a reviewer would ask about. Each names the file where it lives.
 
-- Password, Google and assisted email-code authentication, password recovery and account deletion confirmation.
-- Child profiles, dated measurements, caregiver avatars and shared guardian access.
-- Vaccination schedules and records, including a public Brazilian PNI schedule for external integrations.
-- Appointments, medications, developmental milestones, professionals and health plans.
-- Notifications and background reminder processing with BullMQ.
-- Versioned legal document acceptance records.
-- Audit logging, request validation and a committed OpenAPI contract.
-
-Cygnus is an organizational tool and does not replace professional healthcare advice.
+- **One contract, generated from the code.** The Zod schema on each route validates the request and
+  the response and becomes the OpenAPI document (`fastify-type-provider-zod`). `openapi.json` is
+  committed, and CI regenerates it and fails on any difference, so the published contract cannot
+  drift from the routes. The frontend's CI compares its own schemas with that file
+  ([`scripts/generate-openapi.ts`](scripts/generate-openapi.ts)).
+- **Sessions that can actually be ended.** The access token (15 minutes) and the refresh token
+  (7 days) are HttpOnly, `Secure`, `SameSite=Strict` cookies, never JSON. A refresh rotates, and its
+  `jti` is revoked in Redis. A password reset increments `users.session_version`, which kills every
+  refresh token at once. It is a counter, not a timestamp: `iat` has one-second resolution, so a time
+  cutoff would spare the tokens issued in the very second of the reset
+  ([`refresh-user-session.use-case.ts`](src/application/user/refresh-user-session.use-case.ts)).
+- **Sign-in flows that never tell who has an account.** A request for a sign-in code or a password
+  reset answers 200 for every address, registered or not, delivered or not. A wrong, expired, spent
+  or unknown code gets the same 401 with the same message. The six-digit codes are stored as an
+  HMAC, and one Lua script counts the attempt, enforces the budget of 5 and consumes the code, so
+  those steps cannot interleave. Codes live 10 minutes, and an address can ask for 5 every
+  15 minutes.
+- **A demo that cannot become a real account.** `POST /auth/demo` creates a disposable account with a
+  sample family dated relative to today, signs the caller in, and answers 201; each IP may open 10 an
+  hour. `demo_expires_at` is written on create and never on update, so no profile edit makes a demo
+  permanent. Demo addresses use the `.invalid` domain, which the e-mail service drops, and a BullMQ
+  job deletes expired demos every hour ([`src/application/demo/`](src/application/demo)).
+- **A public endpoint that cannot carry a session.** `/public/*` answers
+  `Access-Control-Allow-Origin: *` without credentials, and everything else answers one origin with
+  credentials. Browsers refuse a wildcard origin with credentials, which is exactly what keeps the
+  public prefix from ever reading a cookie. One CORS delegate and one exported prefix keep the two
+  halves in step ([`build-app.ts`](src/infrastructure/http/build-app.ts)).
+- **Reminders that survive a failure.** The daily reminder sweep retries 5 times with exponential
+  backoff from 30 seconds, then lands in a dead-letter queue. Retrying is safe because the consumer
+  is idempotent: a notification is created once per trigger. Redis is pinned to `noeviction`, so a
+  dead letter cannot be evicted under memory pressure ([`src/infrastructure/queue/`](src/infrastructure/queue)).
+- **Deploys that migrate the database first.** The container runs `prisma migrate deploy` before the
+  server starts. Neon's pooler can strand the migration's advisory lock, so
+  [`scripts/start.sh`](scripts/start.sh) retries 8 times, 15 seconds apart, and the CLI uses the
+  direct host when `DIRECT_DATABASE_URL` is set.
 
 ## Architecture
 
-Fastify 5 and strict TypeScript provide the HTTP layer; Prisma 7 and PostgreSQL store application data; Redis supports caching, authentication state and BullMQ jobs. Zod schemas drive request/response validation and OpenAPI generation. Resend handles transactional email.
+```mermaid
+flowchart TB
+  Client["Cygnus web app<br/>through the same-origin /api rewrite"] --> Presentation
+  Widget["Embed widget<br/>GET /public/vaccine-schedule"] --> Presentation
+  subgraph Presentation["presentation/http"]
+    Routes["routes · Zod schemas · auth guard and CSRF"]
+  end
+  subgraph Application["application"]
+    UseCases["use cases"]
+    Ports["ports: repositories, tokens, e-mail, codes"]
+  end
+  subgraph Domain["domain"]
+    Entities["entities · value objects · domain errors"]
+  end
+  subgraph Infrastructure["infrastructure"]
+    Adapters["Prisma repositories · Redis · BullMQ workers · Resend · bcrypt and JWT"]
+  end
+  Routes --> UseCases
+  UseCases --> Entities
+  UseCases --> Ports
+  Adapters -. implements .-> Ports
+  Adapters --> Postgres[("PostgreSQL")]
+  Adapters --> Redis[("Redis")]
+```
 
-| Directory | Responsibility |
+Dependencies point inward: the domain imports nothing, use cases depend on interfaces, and the
+infrastructure implements them. Plain `*.instance.ts` modules wire the pieces together, without a
+dependency injection container.
+
+| Path | What lives there |
 | --- | --- |
 | `src/domain/` | Entities, value objects and domain errors |
-| `src/application/` | Use cases and service/repository contracts |
-| `src/infrastructure/` | Prisma repositories, Redis, jobs, email and HTTP application assembly |
-| `src/presentation/http/` | Routes, schemas, authentication plugins and HTTP utilities |
-| `src/shared/` | Configuration, logging and shared utilities |
-| `prisma/` | Schema, migrations and vaccine seed data |
-| `tests/` | Unit and integration tests |
-| `src/generated/` | Generated Prisma client; ignored and never edited manually |
+| `src/application/` | Use cases and the contracts they depend on |
+| `src/infrastructure/` | Prisma repositories, Redis, BullMQ queues and workers, e-mail, the Fastify app |
+| `src/presentation/http/` | Routes (one file per feature), Zod schemas, auth plugins |
+| `src/shared/` | Configuration, logging and utilities |
+| `prisma/` | Schema, migrations and the vaccine catalogue seed |
+| `tests/` | Unit tests with hand-written fakes, integration tests on real PostgreSQL and Redis |
 
-Dependencies point toward domain and application contracts. Plain instance modules assemble services without a dependency injection framework.
+`src/generated/` holds the Prisma client. It is build output: ignored by git and never edited.
 
-## Local development
+## Data model
 
-Use Node.js 24, npm, PostgreSQL and Redis. Copy [.env.example](.env.example) to `.env` and configure local credentials before starting services. Keep environment files out of version control.
+The core of the 17 Prisma models. Join tables for shared professionals and the audit log are left
+out.
+
+```mermaid
+erDiagram
+  User ||--o{ Baby : owns
+  User ||--o{ BabyGuardian : "cares for"
+  Baby ||--o{ BabyGuardian : "is shared with"
+  Baby ||--o{ BabyInvite : "invites to"
+  Baby ||--o{ BabyVaccineRecord : records
+  Vaccine |o--o{ BabyVaccineRecord : "catalogue dose of"
+  Baby ||--o{ Appointment : has
+  Specialist |o--o{ Appointment : attends
+  User ||--o{ Specialist : keeps
+  Baby ||--o{ BabyMeasurement : "is measured in"
+  Baby ||--o{ Milestone : reaches
+  Baby ||--o{ Medication : takes
+  User ||--o{ Notification : receives
+  User ||--o{ LegalAcceptance : signs
+  User ||--o| GoogleIdentity : "signs in with"
+```
+
+A vaccine record without a catalogue dose is an ad hoc vaccine, given outside the PNI schedule. An
+appointment keeps the doctor's name typed on the day when its professional is deleted: a health
+record does not lose information because somebody cleaned a list.
+
+## Endpoints
+
+58 operations, all in [`openapi.json`](openapi.json) with every status they can return.
+
+| Area | Operations | Examples |
+| --- | ---: | --- |
+| Auth | 13 | register, login, refresh, `me`, demo, sign-in codes, password reset, Google |
+| Users | 4 | update profile, export data, confirm and delete the account |
+| Babies | 5 | create, list, read, update, delete a child |
+| Vaccines | 5 | the child's schedule, apply a dose, ad hoc vaccines |
+| Appointments | 6 | CRUD per child, and the list of specialties |
+| Specialists | 4 | the family's professionals |
+| Medications | 4 | CRUD per child |
+| Milestones | 5 | CRUD per child |
+| Guardians | 5 | invite, read and redeem an invite, list and remove guardians |
+| Notifications | 2 | list, mark as read |
+| Legal | 2 | read and record acceptance of the terms |
+| Uploads, Public, Health | 3 | a milestone photo; the PNI schedule for the widget; the health check |
+
+Swagger UI runs only under `npm run dev`, at `/docs`. In production, and in the Docker stack, which
+runs the production image, `/docs` answers 404: the UI is a full map of the API for no end user, so
+the committed file is how the contract is published.
+
+## Running locally
+
+Use Node.js 24 and npm. Copy [`.env.example`](.env.example) to `.env` and fill in local values; keep
+environment files out of git.
 
 ```bash
 npm ci
@@ -55,90 +174,91 @@ npm run prisma:generate
 docker compose up -d postgres redis
 npm run prisma:migrate
 npm run prisma:seed
-npm run dev
+npm run dev        # http://localhost:3005, Swagger UI at /docs
 ```
 
-The development API defaults to `http://localhost:3005`, with Swagger UI at `/docs`. Configure the separate frontend at `http://localhost:4205`.
-
-### Docker
+Or run the whole stack in Docker:
 
 ```bash
 docker compose up -d --build
 ```
 
-| Service | Default host port |
+| Service | Host port |
 | --- | --- |
 | API | 3005 |
 | PostgreSQL | 5433 |
 | Redis | 6379 |
 
-Compose starts the API and its dependencies; it does not start the frontend. The API image is static, so rebuild it after source changes. Avoid running the container and the development server on the same port.
+The container is the production image: it applies pending migrations on start, serves no `/docs`,
+and needs a rebuild after every source change. Compose sets `SECURE_COOKIES=false` because it runs
+over plain HTTP; without it the browser drops the `Secure` cookies and every request after the login
+is a 401. Compose does not start the frontend, which lives at `http://localhost:4205` (see the
+[frontend repository](https://github.com/samuelcsantana/cygnus)).
 
-The container applies pending Prisma migrations before starting the server. It runs in production mode, so `/docs` and `/docs/json` return 404 even in local Docker. The local Compose configuration disables secure cookies for plain HTTP; production must use HTTPS.
-
-## Authentication and API contract
-
-Sessions use HttpOnly access and refresh cookies. Mutating authenticated requests use the CSRF cookie/header pair. Browser production traffic goes through the frontend's same-origin `/api/*` proxy. Public schedule endpoints deliberately allow anonymous access and do not carry account data.
-
-See [Google sign-in setup](GOOGLE_AUTH.md) for credentials, callback URLs and account association rules. Secrets belong on the backend, never in frontend `VITE_*` variables.
-
-[openapi.json](openapi.json) is generated from the route schemas and checked for drift in CI. Regenerate it after route or schema changes:
-
-```bash
-npm run openapi:generate
-```
-
-The contract is available as a repository file because Swagger HTTP routes are disabled in production. Keep the technical title **Cygnus API** and published paths stable for consumers.
+[Google sign-in setup](GOOGLE_AUTH.md) covers the credentials, the callback URLs and how a Google
+identity is linked to an existing account.
 
 ## Tests and coverage
 
-Integration tests use real PostgreSQL and Redis. They perform destructive cleanup and must run against a dedicated test database, never development or production records.
-
-Copy [.env.test.example](.env.test.example) to `.env.test`, configure the dedicated `cygnus_db_test` database and Redis logical database `/1`, and follow that file's database creation instructions.
+Integration tests run against a real PostgreSQL and a real Redis, through Fastify's `inject()`, and
+delete data between tests. Point them only at a dedicated test database. Copy
+[`.env.test.example`](.env.test.example) to `.env.test`, create `cygnus_db_test`, and use Redis
+logical database `/1`.
 
 ```bash
 npm run prisma:generate
-npm run test:migrate
+npm run test:migrate      # prisma db push, for the throwaway test database only
 npm test
 npm run test:coverage
 ```
 
-The test schema command uses `prisma db push` only for the disposable test database. Application databases use committed migrations. Spec files run sequentially to avoid cleanup races in shared test storage.
+Spec files run one at a time, because they share one database and one file's cleanup would race
+another's writes. Application databases only ever change through committed migrations.
 
-The [public V8 coverage report](https://samuelcsantana.github.io/cygnus-api/) measures lines, statements, functions and branches across authored `src/**/*.ts`, including modules not imported by tests. Generated Prisma code and type declarations are excluded. The badge shows line coverage from the latest successful main-branch Pages publication, combining API unit and integration tests. It does not include frontend tests or prove complete security coverage.
-
-The Tests workflow publishes the measured report to Pages after successful tests on `main`, retains a report artifact for 14 days and includes the metrics in the Actions summary. No minimum coverage threshold is imposed initially.
+The [coverage report](https://samuelcsantana.github.io/cygnus-api/) combines the unit and
+integration suites over every authored file in `src/`, imported by a test or not, and excludes the
+generated Prisma client. No minimum is enforced, and coverage is not a security claim.
 
 ## Commands and CI
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | Development server with hot reload |
-| `npm run build` | Typecheck and compile application and seed code |
-| `npm start` | Run the compiled application |
-| `npm test` | Unit and integration tests |
-| `npm run test:coverage` | Tests, V8 coverage and report summary |
-| `npm run openapi:generate` | Regenerate the API contract |
-| `npm run prisma:generate` | Generate the Prisma client |
-| `npm run prisma:migrate` | Create/apply development migrations |
+| `npm run dev` | Development server with reload and Swagger UI |
+| `npm run build` | Typecheck and compile the app and the seed |
+| `npm start` | Run the compiled app |
+| `npm test` / `npm run test:coverage` | Unit and integration tests / with V8 coverage |
+| `npm run openapi:generate` | Regenerate `openapi.json` after a route or schema change |
+| `npm run prisma:migrate` | Create and apply a development migration |
 | `npm run prisma:migrate:deploy` | Apply committed migrations |
-| `npm run prisma:seed` | Seed the vaccine catalog |
+| `npm run prisma:seed` | Seed the vaccine catalogue |
 | `npm run prisma:studio` | Open Prisma Studio |
 
-CI validates compilation and OpenAPI drift. Separate workflows run the database-backed tests and dependency security checks. There is currently no lint script; the build performs TypeScript checks. Workflow badges describe their checks, not a security certification.
+Three workflows run on every pull request: `ci.yml` (build, typecheck and the `openapi.json` drift
+check), `tests.yml` (the suites against PostgreSQL and Redis service containers, then the coverage
+report to GitHub Pages from `main`) and `security.yml` (`npm audit`, also every Monday). There is no
+lint script yet; the build is the type check.
 
-## Deployment and current limitations
+## Deployment and known limits
 
-Render configuration lives in `render.yaml`; Docker configuration lives in `Dockerfile` and `docker-compose.yml`. Production uses PostgreSQL on Neon and Redis on Render. Merging to `main` triggers deployment, and container startup applies pending database migrations.
+A merge to `main` deploys to Render (`render.yaml`), and the container migrates the production
+database before it starts. PostgreSQL is on Neon and Redis is a Render Key Value instance. Browsers
+reach the API through the frontend's `/api/*` rewrite: Render sells custom domains only on paid
+plans, and `SameSite=Strict` cookies would not travel to a cross-site host.
 
-Uploads are served through public URLs and do not currently provide private file access control. Local Docker uses an upload volume, but production file durability depends on hosting storage. Keep original files. The reminder worker shares the API process, so scheduled delivery depends on that process remaining available.
+What the current hosting does not do:
 
-Account deletion does not guarantee immediate removal of all uploads, logs or provider backups. Current export functionality is partial. See the web [Privacy Policy](https://cygnus.samuelsantana.dev/privacidade) and [Terms of Use](https://cygnus.samuelsantana.dev/termos) for the service's documented behavior.
+- The free Render instance sleeps when idle and takes about a minute to wake. The reminder worker
+  runs in the same process, so the 08:00 sweep is not dependable until the instance is paid.
+- Milestone photos are served from public URLs; only uploading requires a session. Their durability
+  depends on the host's storage.
+- Deleting an account does not promise immediate removal from logs or provider backups, and the
+  data export is partial. The [Privacy Policy](https://cygnus.samuelsantana.dev/privacidade) and the
+  [Terms of Use](https://cygnus.samuelsantana.dev/termos) describe what the service does.
 
-The frontend and API have independent versions. The planned Android application and future optional cloud offering are outside this repository's current deliverables.
+The API and the frontend are versioned independently.
 
-## License and contact
+## License
 
-Distributed under the [MIT License](LICENSE), copyright © 2026 Samuel Santana. Third-party dependencies retain their own licenses.
+[MIT](LICENSE), © 2026 Samuel Santana. Dependencies keep their own licenses.
 
-Maintainer: Samuel Santana — [samuel.ssa89@gmail.com](mailto:samuel.ssa89@gmail.com).
+Built by Samuel Santana: [samuel.ssa89@gmail.com](mailto:samuel.ssa89@gmail.com).
