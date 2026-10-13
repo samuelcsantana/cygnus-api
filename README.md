@@ -72,28 +72,13 @@ The decisions below are the ones a reviewer would ask about. Each names the file
 ## Architecture
 
 ```mermaid
-flowchart TB
-  Client["Cygnus web app<br/>through the same-origin /api rewrite"] --> Presentation
-  Widget["Embed widget<br/>GET /public/vaccine-schedule"] --> Presentation
-  subgraph Presentation["presentation/http"]
-    Routes["routes · Zod schemas · auth guard and CSRF"]
-  end
-  subgraph Application["application"]
-    UseCases["use cases"]
-    Ports["ports: repositories, tokens, e-mail, codes"]
-  end
-  subgraph Domain["domain"]
-    Entities["entities · value objects · domain errors"]
-  end
-  subgraph Infrastructure["infrastructure"]
-    Adapters["Prisma repositories · Redis · BullMQ workers · Resend · bcrypt and JWT"]
-  end
-  Routes --> UseCases
-  UseCases --> Entities
-  UseCases --> Ports
-  Adapters -. implements .-> Ports
-  Adapters --> Postgres[("PostgreSQL")]
-  Adapters --> Redis[("Redis")]
+flowchart LR
+  Clients["Cygnus web app<br/>embed widget"] --> P
+  P["<b>presentation/http</b><br/>routes · Zod schemas<br/>auth guard · CSRF"] --> A
+  A["<b>application</b><br/>use cases<br/>ports"] --> D["<b>domain</b><br/>entities · value objects<br/>domain errors"]
+  I["<b>infrastructure</b><br/>Prisma · Redis · BullMQ<br/>Resend · bcrypt · JWT"] -. "implements the ports" .-> A
+  I --> PG[("PostgreSQL")]
+  I --> R[("Redis")]
 ```
 
 Dependencies point inward: the domain imports nothing, use cases depend on interfaces, and the
@@ -114,26 +99,25 @@ dependency injection container.
 
 ## Data model
 
-The core of the 17 Prisma models. Join tables for shared professionals and the audit log are left
-out.
+How the 17 Prisma models hang together, around the child. The join tables for shared professionals
+and the audit log are left out.
 
 ```mermaid
-erDiagram
-  User ||--o{ Baby : owns
-  User ||--o{ BabyGuardian : "cares for"
-  Baby ||--o{ BabyGuardian : "is shared with"
-  Baby ||--o{ BabyInvite : "invites to"
-  Baby ||--o{ BabyVaccineRecord : records
-  Vaccine |o--o{ BabyVaccineRecord : "catalogue dose of"
-  Baby ||--o{ Appointment : has
-  Specialist |o--o{ Appointment : attends
-  User ||--o{ Specialist : keeps
-  Baby ||--o{ BabyMeasurement : "is measured in"
-  Baby ||--o{ Milestone : reaches
-  Baby ||--o{ Medication : takes
-  User ||--o{ Notification : receives
-  User ||--o{ LegalAcceptance : signs
-  User ||--o| GoogleIdentity : "signs in with"
+flowchart LR
+  User(["User"])
+  Baby(["Baby"])
+  User -- "owns" --> Baby
+  User -- "cares for, through<br/>BabyGuardian" --> Baby
+  User --> Specialist["Specialist"]
+  User --> Account["GoogleIdentity · LegalAcceptance<br/>Notification"]
+  Baby --> Invite["BabyInvite"]
+  Baby --> Record["BabyVaccineRecord"]
+  Record -. "a dose of, or ad hoc" .-> Vaccine[("Vaccine<br/>PNI catalogue")]
+  Baby --> Appointment["Appointment"]
+  Appointment -. "with, optionally" .-> Specialist
+  Baby --> Measurement["BabyMeasurement"]
+  Baby --> Milestone["Milestone"]
+  Baby --> Medication["Medication"]
 ```
 
 A vaccine record without a catalogue dose is an ad hoc vaccine, given outside the PNI schedule. An
