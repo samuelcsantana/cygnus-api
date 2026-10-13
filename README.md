@@ -8,11 +8,24 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/samuelcsantana/cygnus-api/actions/workflows/ci.yml"><img src="https://github.com/samuelcsantana/cygnus-api/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-  <a href="https://github.com/samuelcsantana/cygnus-api/actions/workflows/tests.yml"><img src="https://github.com/samuelcsantana/cygnus-api/actions/workflows/tests.yml/badge.svg?branch=main" alt="Tests"></a>
-  <a href="https://github.com/samuelcsantana/cygnus-api/actions/workflows/security.yml"><img src="https://github.com/samuelcsantana/cygnus-api/actions/workflows/security.yml/badge.svg?branch=main" alt="Security"></a>
-  <a href="https://samuelcsantana.github.io/cygnus-api/"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fsamuelcsantana.github.io%2Fcygnus-api%2Fbadge.json" alt="API line coverage"></a>
+  <a href="https://github.com/samuelcsantana/cygnus-api/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/samuelcsantana/cygnus-api/ci.yml?branch=main&amp;label=CI&amp;logo=githubactions&amp;logoColor=white" alt="CI status"></a>
+  <a href="https://github.com/samuelcsantana/cygnus-api/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/samuelcsantana/cygnus-api/tests.yml?branch=main&amp;label=tests&amp;logo=githubactions&amp;logoColor=white" alt="Tests status"></a>
+  <a href="https://github.com/samuelcsantana/cygnus-api/deployments"><img src="https://img.shields.io/github/deployments/samuelcsantana/cygnus-api/main%20-%20cygnus-api?label=production&amp;logo=render" alt="Production deployment on Render"></a>
+  <a href="https://github.com/samuelcsantana/cygnus-api/actions/workflows/security.yml"><img src="https://img.shields.io/github/actions/workflow/status/samuelcsantana/cygnus-api/security.yml?branch=main&amp;label=security&amp;logo=githubactions&amp;logoColor=white" alt="Security audit status"></a>
+  <a href="https://samuelcsantana.github.io/cygnus-api/"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fsamuelcsantana.github.io%2Fcygnus-api%2Fbadge.json&amp;label=coverage" alt="API line coverage"></a>
+  <br>
+  <a href="https://cygnus.samuelsantana.dev"><img src="https://img.shields.io/badge/live%20demo-no%20sign--up-2d6a4f" alt="Live demo, no sign-up"></a>
+  <a href="openapi.json"><img src="https://img.shields.io/badge/contract-OpenAPI%203.0-6BA539?logo=openapiinitiative&amp;logoColor=white" alt="OpenAPI 3.0 contract"></a>
+  <a href="https://github.com/samuelcsantana/cygnus-api/releases/latest"><img src="https://img.shields.io/github/v/release/samuelcsantana/cygnus-api?label=release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/samuelcsantana/cygnus-api" alt="MIT License"></a>
+  <br>
+  <img src="https://img.shields.io/badge/Fastify-5-000000?logo=fastify&amp;logoColor=white" alt="Fastify 5">
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&amp;logoColor=white" alt="TypeScript strict">
+  <img src="https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma&amp;logoColor=white" alt="Prisma 7">
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&amp;logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/Redis-DC382D?logo=redis&amp;logoColor=white" alt="Redis">
+  <img src="https://img.shields.io/badge/Zod-3-3E67B1?logo=zod&amp;logoColor=white" alt="Zod 3">
+  <img src="https://img.shields.io/badge/BullMQ-5-D9480F" alt="BullMQ 5">
 </p>
 
 # Cygnus API
