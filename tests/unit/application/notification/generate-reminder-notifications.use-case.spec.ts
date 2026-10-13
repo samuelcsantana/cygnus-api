@@ -175,6 +175,28 @@ describe('GenerateReminderNotificationsUseCase — appointments', () => {
     expect(savedNotification.referenceId).toBe(appointment.id);
   });
 
+  // The sweep runs at every boot and again each morning, and BullMQ retries it after a failure:
+  // the same appointment is seen many times, and the guardian must still get one reminder.
+  it('does not remind twice about an appointment it already reminded about', async () => {
+    const baby = buildBaby();
+    const appointment = buildAppointment({
+      scheduledAt: new Date('2024-06-02T00:00:00.000Z'),
+      referenceDate: new Date('2024-05-01T00:00:00.000Z'),
+    });
+    const notificationRepository = buildNotificationRepository({ existsForTrigger: vi.fn().mockResolvedValue(true) });
+    const useCase = buildUseCase({
+      babyRepository: buildBabyRepository({ findAll: vi.fn().mockResolvedValue([baby]) }),
+      appointmentRepository: buildAppointmentRepository({ findAllByBabyId: vi.fn().mockResolvedValue([appointment]) }),
+      notificationRepository,
+    });
+
+    const result = await useCase.execute(referenceDate);
+
+    expect(result.createdCount).toBe(0);
+    expect(notificationRepository.existsForTrigger).toHaveBeenCalledWith(baby.id, 'APPOINTMENT_UPCOMING', appointment.id);
+    expect(notificationRepository.save).not.toHaveBeenCalled();
+  });
+
   it('skips an appointment scheduled beyond the reminder window', async () => {
     const baby = buildBaby();
     const appointment = buildAppointment({
