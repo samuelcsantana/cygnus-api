@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { DeleteAppointmentUseCase } from '../../../../src/application/appointment/delete-appointment.use-case';
 import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
 import { AppointmentNotFoundError } from '../../../../src/application/appointment/errors/appointment-not-found.error';
+import { Appointment } from '../../../../src/domain/appointment/appointment';
 import {
   buildAppointment,
   buildAppointmentRepository,
@@ -29,7 +30,13 @@ describe('DeleteAppointmentUseCase', () => {
 
   it('deletes a completed appointment too, because a typo in the past is still a typo', async () => {
     const baby = buildBaby({ userId: 'owner-id' });
-    const appointment = buildAppointment({ babyId: baby.id, status: 'COMPLETED' });
+    // Restored, not scheduled: `schedule` always opens a visit as SCHEDULED and ignored the status
+    // this test used to pass it, so the visit under test was never a completed one.
+    const appointment = Appointment.restore({
+      ...buildAppointment({ babyId: baby.id }),
+      status: 'COMPLETED',
+    });
+    expect(appointment.status).toBe('COMPLETED');
     const deleteFn = vi.fn().mockResolvedValue(undefined);
     const babyRepository = buildBabyRepository({ findById: vi.fn().mockResolvedValue(baby) });
     const appointmentRepository = buildAppointmentRepository({

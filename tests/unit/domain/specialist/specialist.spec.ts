@@ -6,7 +6,8 @@ describe('Specialist.register', () => {
   it('trims the name and keeps the phone as typed', () => {
     const specialist = Specialist.register({
       id: 'specialist-1',
-      babyId: 'baby-1',
+      userId: 'user-1',
+      babyIds: ['baby-1'],
       name: '  Dra. Fernanda Lima  ',
       specialty: 'Pediatria',
       phone: '+55 11 99999-0000',
@@ -21,7 +22,7 @@ describe('Specialist.register', () => {
 
   it('rejects an empty name', () => {
     expect(() =>
-      Specialist.register({ id: 'specialist-1', babyId: 'baby-1', name: '   ' }),
+      Specialist.register({ id: 'specialist-1', userId: 'user-1', name: '   ' }),
     ).toThrow(InvalidSpecialistNameError);
   });
 
@@ -32,7 +33,8 @@ describe('Specialist.register', () => {
   it('treats a blank specialty or phone as absent', () => {
     const specialist = Specialist.register({
       id: 'specialist-1',
-      babyId: 'baby-1',
+      userId: 'user-1',
+      babyIds: ['baby-1'],
       name: 'Dra. Fernanda Lima',
       specialty: '   ',
       phone: '',
@@ -40,5 +42,20 @@ describe('Specialist.register', () => {
 
     expect(specialist.specialty).toBeNull();
     expect(specialist.phone).toBeNull();
+  });
+
+  // The owner sees their own entries anyway; listing them in their own share list would read as if
+  // somebody else had granted them access.
+  it('keeps each child and each person once, and never shares an entry with its owner', () => {
+    const specialist = Specialist.register({
+      id: 'specialist-1',
+      userId: 'user-1',
+      name: 'Dra. Fernanda Lima',
+      babyIds: ['baby-1', 'baby-2', 'baby-1'],
+      sharedWithUserIds: ['user-2', 'user-1', 'user-2'],
+    });
+
+    expect(specialist.babyIds).toEqual(['baby-1', 'baby-2']);
+    expect(specialist.sharedWithUserIds).toEqual(['user-2']);
   });
 });
