@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
@@ -58,7 +57,7 @@ describe('unexpected failures inside a route', () => {
   const EMAIL = 'unexpected-failures@example.com';
   const PASSWORD = 'S3cur3-Password';
   const INTERNAL_MESSAGE = 'connection terminated unexpectedly';
-  let app: FastifyInstance;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   let session: Record<string, string>;
 
   const babyId = randomUUID();

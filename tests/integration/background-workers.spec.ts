@@ -1,6 +1,5 @@
 import { once } from 'node:events';
 import { Worker } from 'bullmq';
-import { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
@@ -18,7 +17,7 @@ import type { DeadLetterPayload } from '../../src/infrastructure/queue/dead-lett
  * worker reaches the database, and a job that gives up lands where a human will look.
  */
 describe('background workers', () => {
-  let app: FastifyInstance;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   let reminderWorker: Worker | undefined;
   let demoAccountWorker: Worker | undefined;
 
