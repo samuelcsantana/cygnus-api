@@ -25,3 +25,23 @@ describe('User.create', () => {
       .toThrow(InvalidEmailError);
   });
 });
+
+describe('User.withResetPassword', () => {
+  it('changes only the password and moves the session version on, so older sessions end', () => {
+    const user = User.fromPersistence({
+      id: 'user-1',
+      email: 'parent@example.com',
+      passwordHash: 'old-hash',
+      avatarUrl: 'https://example.com/me.png',
+      name: 'Jane',
+      emailNotificationsEnabled: false,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      sessionVersion: 4,
+    });
+
+    const reset = user.withResetPassword('new-hash');
+
+    expect(reset).toMatchObject({ ...user, passwordHash: 'new-hash', sessionVersion: 5 });
+    expect(user.passwordHash).toBe('old-hash');
+  });
+});

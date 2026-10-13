@@ -490,6 +490,28 @@ describe('Auth routes', () => {
       expect(replay.statusCode).toBe(401);
     });
 
+    it('resets the password of an account opened by a sign-in code before it has a name', async () => {
+      const email = uniqueEmail('unnamed-reset');
+      const signIn = await app.inject({
+        method: 'POST',
+        url: '/auth/passwordless/verify',
+        payload: { email, code: await issueCode('passwordless', email) },
+      });
+      expect(signIn.statusCode).toBe(200);
+      expect((await prisma.user.findUniqueOrThrow({ where: { email } })).name).toBe('');
+
+      const reset = await app.inject({
+        method: 'POST',
+        url: '/auth/password-reset/verify',
+        payload: { email, code: await issueCode('password-reset', email), password: 'A-Brand-New-Password' },
+      });
+      const login = await app.inject({ method: 'POST', url: '/auth/login', payload: { email, password: 'A-Brand-New-Password' } });
+
+      expect(reset.statusCode).toBe(200);
+      expect(login.statusCode).toBe(200);
+      expect((await prisma.user.findUniqueOrThrow({ where: { email } })).name).toBe('');
+    });
+
     it('refuses a sign-in code on the reset endpoint, and answers 401 for an address with no account', async () => {
       const email = uniqueEmail('scoped');
       await register(email);

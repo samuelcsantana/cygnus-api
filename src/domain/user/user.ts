@@ -55,6 +55,28 @@ export class User {
     return this.demoExpiresAt !== null;
   }
 
+  /**
+   * The same account with a new password and every older session ended: the session version moves
+   * on, so the refresh tokens minted before the reset stop working.
+   *
+   * Built from this instance, not through `create`. The account already exists, and `create` holds
+   * the rules for a *new* one: run on an account opened by a sign-in code before its owner gave a
+   * name (`createUnnamed`), it refused the empty name and the reset answered 500.
+   */
+  withResetPassword(passwordHash: string): User {
+    return new User({
+      id: this.id,
+      email: this.email,
+      passwordHash,
+      avatarUrl: this.avatarUrl,
+      name: this.name,
+      emailNotificationsEnabled: this.emailNotificationsEnabled,
+      createdAt: this.createdAt,
+      sessionVersion: this.sessionVersion + 1,
+      demoExpiresAt: this.demoExpiresAt,
+    });
+  }
+
   /** True once a demo account has outlived its 24 hours, even if the sweep has not reached it yet. */
   isExpiredDemoAt(now: Date): boolean {
     return this.demoExpiresAt !== null && this.demoExpiresAt.getTime() <= now.getTime();

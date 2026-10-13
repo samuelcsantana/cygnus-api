@@ -135,4 +135,18 @@ describe('ResetPasswordUseCase', () => {
     expect(passwordHasher.hash).not.toHaveBeenCalled();
     expect(userRepository.save).not.toHaveBeenCalled();
   });
+
+  // "Entrar sem senha" opens an account before its owner gives a name, and that owner may set a
+  // password through the reset flow. Rebuilding the user with the sign-up rules refused the empty
+  // name and the reset answered 500.
+  it('resets the password of an account that has no name yet, and keeps it unnamed', async () => {
+    const unnamed = User.createUnnamed({ id: 'user-id', email: 'parent@example.com', passwordHash: 'random-hash' });
+    const userRepository = buildUserRepository({ findByEmail: vi.fn().mockResolvedValue(unnamed) });
+    const useCase = new ResetPasswordUseCase(userRepository, buildVerificationCodeService('valid'), buildPasswordHasher(), buildTokenService());
+
+    await useCase.execute({ email: 'parent@example.com', code: '123456', password: 'A-New-Password' });
+
+    const saved = vi.mocked(userRepository.save).mock.calls[0]?.[0];
+    expect(saved).toMatchObject({ id: 'user-id', name: '', passwordHash: 'new-password-hash', sessionVersion: 1 });
+  });
 });
