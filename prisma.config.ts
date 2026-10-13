@@ -21,6 +21,12 @@ export default defineConfig({
     // transaction pooling (Neon's `-pooler` host, what DATABASE_URL points at in
     // production) cannot release reliably; a direct connection has no such gap.
     // The application never reads this: it connects through DATABASE_URL.
+    //
+    // Keep `sslmode=require` on this URL, even when DATABASE_URL moves to `verify-full`. The two
+    // are read by different code: DATABASE_URL by node-postgres, which verifies the certificate
+    // under both values today, and this one by Prisma's schema engine, which honours `require` but
+    // not `verify-full`. Tested on 2026-10-13 against a Postgres without TLS: `require` refused to
+    // connect, and `verify-full` connected in plaintext.
     url: process.env['DIRECT_DATABASE_URL'] || process.env['DATABASE_URL'],
   },
 });
