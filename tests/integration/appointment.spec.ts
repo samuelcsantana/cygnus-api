@@ -509,4 +509,27 @@ describe('Appointment routes', () => {
       'Appointments',
     );
   });
+
+  describe('GET /babies/:babyId/appointments/:appointmentId', () => {
+    it('returns one appointment, as the detail dialog loads it', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('appointment-get-one@example.com');
+      const babyId = await createBaby(cookie, csrfToken);
+      const scheduledAt = futureIsoString(5);
+      const created = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/appointments`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { scheduledAt, doctorName: 'Dra. Ana Ribeiro', specialty: 'Pediatria' },
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/appointments/${created.json().id}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ id: created.json().id, doctorName: 'Dra. Ana Ribeiro', specialty: 'Pediatria', status: 'SCHEDULED' });
+    });
+  });
 });

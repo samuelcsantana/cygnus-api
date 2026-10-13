@@ -239,4 +239,22 @@ describe('Guardian-based access control (IDOR prevention)', () => {
       );
     });
   });
+
+  describe('a redeemed guardian, compared with the owner', () => {
+    it('cannot delete the baby: only the owner can', async () => {
+      const owner = await registerAndLogin('delete-rights-owner@example.com');
+      const guardian = await registerAndLogin('delete-rights-guardian@example.com');
+      const babyId = await createBaby(owner.cookie, owner.csrfToken);
+      await addAsGuardian(owner.cookie, owner.csrfToken, babyId, guardian.cookie, guardian.csrfToken);
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/babies/${babyId}`,
+        headers: { cookie: guardian.cookie, 'x-csrf-token': guardian.csrfToken },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(await prisma.baby.count({ where: { id: babyId } })).toBe(1);
+    });
+  });
 });

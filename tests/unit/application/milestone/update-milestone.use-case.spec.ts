@@ -3,6 +3,7 @@ import { UpdateMilestoneUseCase } from '../../../../src/application/milestone/up
 import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-not-found.error';
 import { MilestoneNotFoundError } from '../../../../src/application/milestone/errors/milestone-not-found.error';
 import { FutureMilestoneDateError } from '../../../../src/domain/milestone/errors/future-milestone-date.error';
+import { InvalidMilestoneTitleError } from '../../../../src/domain/milestone/errors/invalid-milestone-title.error';
 import { buildBabyRepository, buildMilestone, buildMilestoneRepository, buildBabyGuardianRepository } from './milestone-test-helpers';
 
 describe('UpdateMilestoneUseCase', () => {
@@ -94,5 +95,31 @@ describe('UpdateMilestoneUseCase', () => {
         description: 'irrelevant',
       }),
     ).rejects.toThrow(MilestoneNotFoundError);
+  });
+
+  it('trims a renamed milestone', async () => {
+    const milestone = buildMilestone();
+    const milestoneRepository = buildMilestoneRepository({ findById: vi.fn().mockResolvedValue(milestone) });
+    const useCase = new UpdateMilestoneUseCase(buildBabyRepository(), buildBabyGuardianRepository(), milestoneRepository);
+
+    const updated = await useCase.execute({
+      babyId: 'baby-1',
+      milestoneId: milestone.id,
+      requestingUserId: 'owner-id',
+      title: '  Primeiros passos  ',
+    });
+
+    expect(updated.title).toBe('Primeiros passos');
+  });
+
+  it('rejects renaming a milestone to blank space', async () => {
+    const milestone = buildMilestone();
+    const milestoneRepository = buildMilestoneRepository({ findById: vi.fn().mockResolvedValue(milestone) });
+    const useCase = new UpdateMilestoneUseCase(buildBabyRepository(), buildBabyGuardianRepository(), milestoneRepository);
+
+    await expect(
+      useCase.execute({ babyId: 'baby-1', milestoneId: milestone.id, requestingUserId: 'owner-id', title: '   ' }),
+    ).rejects.toThrow(InvalidMilestoneTitleError);
+    expect(milestoneRepository.save).not.toHaveBeenCalled();
   });
 });

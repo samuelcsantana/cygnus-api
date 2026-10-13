@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
@@ -406,5 +407,38 @@ describe('Invite/guardian routes', () => {
     expect(openApiDocument.paths['/invites/{code}/redeem'].post.tags).toContain('Guardians');
     expect(openApiDocument.paths['/babies/{babyId}/guardians'].get.tags).toContain('Guardians');
     expect(openApiDocument.paths['/babies/{babyId}/guardians/{userId}'].delete.tags).toContain('Guardians');
+  });
+
+  it('answers 404 when removing someone who is not a guardian of the baby', async () => {
+    const { cookie, csrfToken } = await registerAndLogin('remove-non-guardian-owner@example.com');
+    const babyId = await createBaby(cookie, csrfToken);
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/babies/${babyId}/guardians/${randomUUID()}`,
+      headers: { cookie, 'x-csrf-token': csrfToken },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  // An invite is a bearer secret shared over chat. Past its expiry it must stop working even if
+  // the link is still sitting in someone's messages.
+  it('answers 410 to an invite redeemed after it expired, and grants nothing', async () => {
+    const owner = await registerAndLogin('redeem-expired-owner@example.com');
+    const latecomer = await registerAndLogin('redeem-expired-latecomer@example.com');
+    const babyId = await createBaby(owner.cookie, owner.csrfToken);
+    const { code } = await createInvite(owner.cookie, owner.csrfToken, babyId);
+    await prisma.babyInvite.update({ where: { code }, data: { expiresAt: new Date(Date.now() - 1000) } });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/invites/${code}/redeem`,
+      headers: { cookie: latecomer.cookie, 'x-csrf-token': latecomer.csrfToken },
+    });
+
+    expect(response.statusCode).toBe(410);
+    expect(response.json().message).toBe('Invite has expired');
+    expect(await prisma.babyGuardian.count({ where: { babyId } })).toBe(1);
   });
 });

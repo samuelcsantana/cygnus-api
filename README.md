@@ -214,7 +214,10 @@ another's writes. Application databases only ever change through committed migra
 
 The [coverage report](https://samuelcsantana.github.io/cygnus-api/) combines the unit and
 integration suites over every authored file in `src/`, imported by a test or not, and excludes the
-generated Prisma client. No minimum is enforced, and coverage is not a security claim.
+generated Prisma client. CI fails below a floor (97% of lines, statements and functions, 92% of
+branches) set in `vitest.config.mts`. Most of what stays uncovered is `src/main.ts`, the process
+bootstrap (listen, signal handlers, exit), which only a running server exercises. Coverage is not a
+security claim.
 
 ## Commands and CI
 

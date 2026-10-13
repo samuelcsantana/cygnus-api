@@ -389,4 +389,47 @@ describe('Milestone routes', () => {
     expect(openApiDocument.paths['/babies/{babyId}/milestones/{milestoneId}'].patch.tags).toContain('Milestones');
     expect(openApiDocument.paths['/babies/{babyId}/milestones/{milestoneId}'].delete.tags).toContain('Milestones');
   });
+
+  describe('GET /babies/:babyId/milestones/:milestoneId', () => {
+    it('returns one milestone, as the edit screen loads it', async () => {
+      const { cookie, csrfToken } = await registerAndLogin('milestone-get-one@example.com');
+      const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+      const created = await app.inject({
+        method: 'POST',
+        url: `/babies/${babyId}/milestones`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+        payload: { title: 'Primeiros passos', achievedAt: '2024-11-02', category: 'MOTOR' },
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/babies/${babyId}/milestones/${created.json().id}`,
+        headers: { cookie, 'x-csrf-token': csrfToken },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ id: created.json().id, title: 'Primeiros passos', category: 'MOTOR', achievedAt: '2024-11-02' });
+    });
+  });
+
+  it('rejects renaming a milestone to blank space with 400', async () => {
+    const { cookie, csrfToken } = await registerAndLogin('milestone-blank-rename@example.com');
+    const babyId = await createBaby(cookie, csrfToken, '2024-01-01');
+    const created = await app.inject({
+      method: 'POST',
+      url: `/babies/${babyId}/milestones`,
+      headers: { cookie, 'x-csrf-token': csrfToken },
+      payload: { title: 'Primeiro sorriso', achievedAt: '2024-03-01', category: 'SOCIAL' },
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/babies/${babyId}/milestones/${created.json().id}`,
+      headers: { cookie, 'x-csrf-token': csrfToken },
+      payload: { title: '   ' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect((await prisma.milestone.findUniqueOrThrow({ where: { id: created.json().id } })).title).toBe('Primeiro sorriso');
+  });
 });

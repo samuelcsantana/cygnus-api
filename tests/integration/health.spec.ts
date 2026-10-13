@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../../src/infrastructure/http/build-app';
 import { prisma } from '../../src/infrastructure/database/prisma-client';
 import { healthySchema } from '../../src/presentation/http/schemas/health.schema';
@@ -42,5 +42,16 @@ describe('GET /health', () => {
     expect(healthPath.get.tags).toContain('Health');
     expect(healthPath.get.responses['200']).toBeDefined();
     expect(healthPath.get.responses['503']).toBeDefined();
+  });
+
+  it('answers 503 and says the database is down when it cannot be reached', async () => {
+    const queryRaw = vi.spyOn(prisma, '$queryRaw').mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
+
+    const response = await app.inject({ method: 'GET', url: '/health' });
+
+    expect(queryRaw).toHaveBeenCalled();
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({ status: 'error', database: 'down' });
+    queryRaw.mockRestore();
   });
 });

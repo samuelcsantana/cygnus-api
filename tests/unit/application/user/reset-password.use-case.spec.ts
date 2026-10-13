@@ -121,4 +121,18 @@ describe('ResetPasswordUseCase', () => {
       expect(userRepository.save).not.toHaveBeenCalled();
     },
   );
+
+  // A valid code for an address with no account answers exactly like a wrong code: a different
+  // error here would tell a caller which addresses are registered.
+  it('answers a valid code for an address with no account as a wrong code', async () => {
+    const userRepository = buildUserRepository();
+    const passwordHasher = buildPasswordHasher();
+    const useCase = new ResetPasswordUseCase(userRepository, buildVerificationCodeService('valid'), passwordHasher, buildTokenService());
+
+    await expect(
+      useCase.execute({ email: 'nobody@example.com', code: '123456', password: 'A-New-Password' }),
+    ).rejects.toThrow(InvalidVerificationCodeError);
+    expect(passwordHasher.hash).not.toHaveBeenCalled();
+    expect(userRepository.save).not.toHaveBeenCalled();
+  });
 });

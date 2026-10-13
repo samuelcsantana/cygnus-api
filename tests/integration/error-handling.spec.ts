@@ -64,3 +64,32 @@ describe('error handling', () => {
     expect(response.json()).toMatchObject({ status: 'error', message: 'Internal server error' });
   });
 });
+
+// Its own app: the limiter keeps its counts in memory per instance and inject always comes from
+// 127.0.0.1, so the 101st request here would throttle every later test sharing the instance.
+describe('error handling of the rate limiter', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildApp();
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('answers 429, not 500, once a client passes 100 requests a minute', async () => {
+    // @fastify/rate-limit raises a plain Error carrying statusCode 429. Before the handler had a
+    // branch for it, the throttled caller was told the server had broken.
+    for (let request = 0; request < 100; request += 1) {
+      expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
+    }
+
+    const throttled = await app.inject({ method: 'GET', url: '/health' });
+
+    expect(throttled.statusCode).toBe(429);
+    expect(throttled.json()).toMatchObject({ status: 'error' });
+    expect(throttled.headers['retry-after']).toBeDefined();
+  });
+});

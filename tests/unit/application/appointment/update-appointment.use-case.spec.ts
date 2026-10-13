@@ -4,6 +4,7 @@ import { BabyNotFoundError } from '../../../../src/application/baby/errors/baby-
 import { AppointmentNotFoundError } from '../../../../src/application/appointment/errors/appointment-not-found.error';
 import { PastAppointmentDateError } from '../../../../src/domain/appointment/errors/past-appointment-date.error';
 import { MeasurementBeforeVisitError } from '../../../../src/domain/appointment/errors/measurement-before-visit.error';
+import { InvalidDoctorNameError } from '../../../../src/domain/appointment/errors/invalid-doctor-name.error';
 import { buildAppointment, buildAppointmentRepository, buildBabyRepository, buildBabyGuardianRepository } from './appointment-test-helpers';
 
 describe('UpdateAppointmentUseCase', () => {
@@ -168,5 +169,33 @@ describe('UpdateAppointmentUseCase', () => {
         notes: 'irrelevant',
       }),
     ).rejects.toThrow(AppointmentNotFoundError);
+  });
+
+  it('trims a renamed doctor', async () => {
+    const appointment = buildAppointment();
+    const appointmentRepository = buildAppointmentRepository({ findById: vi.fn().mockResolvedValue(appointment) });
+    const useCase = new UpdateAppointmentUseCase(buildBabyRepository(), buildBabyGuardianRepository(), appointmentRepository);
+
+    const updated = await useCase.execute({
+      babyId: 'baby-1',
+      appointmentId: appointment.id,
+      requestingUserId: 'owner-id',
+      doctorName: '  Dra. Ana Ribeiro  ',
+    });
+
+    expect(updated.doctorName).toBe('Dra. Ana Ribeiro');
+  });
+
+  // The schema asks for at least one character, so "   " gets past it; without this check the visit
+  // would be saved under a blank doctor and show as an empty row in the history.
+  it('rejects renaming the doctor to blank space', async () => {
+    const appointment = buildAppointment();
+    const appointmentRepository = buildAppointmentRepository({ findById: vi.fn().mockResolvedValue(appointment) });
+    const useCase = new UpdateAppointmentUseCase(buildBabyRepository(), buildBabyGuardianRepository(), appointmentRepository);
+
+    await expect(
+      useCase.execute({ babyId: 'baby-1', appointmentId: appointment.id, requestingUserId: 'owner-id', doctorName: '   ' }),
+    ).rejects.toThrow(InvalidDoctorNameError);
+    expect(appointmentRepository.save).not.toHaveBeenCalled();
   });
 });
