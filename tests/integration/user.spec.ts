@@ -343,6 +343,30 @@ describe('User profile routes', () => {
     });
   });
 
+  // An account opened by a sign-in code has no name until its owner gives one, and nothing stops
+  // that owner from opening the profile first. Rebuilding the user with the sign-up rules refused
+  // any edit with 400 "Name must not be empty", whatever the edit was.
+  it('lets an account without a name yet change its other settings, and still refuses a blank name', async () => {
+    const email = `unnamed-profile-${randomUUID()}@example.com`;
+    const signIn = await app.inject({
+      method: 'POST',
+      url: '/auth/passwordless/verify',
+      payload: { email, code: (await verificationCodeService.issue('passwordless', email))! },
+    });
+    const headers = {
+      cookie: extractCookieHeader(signIn.headers['set-cookie']),
+      'x-csrf-token': extractCsrfToken(signIn.headers['set-cookie']),
+    };
+
+    const notifications = await app.inject({ method: 'PATCH', url: '/users/me', headers, payload: { emailNotificationsEnabled: false } });
+    const blankName = await app.inject({ method: 'PATCH', url: '/users/me', headers, payload: { name: '   ' } });
+
+    expect(notifications.statusCode).toBe(200);
+    expect(notifications.json()).toMatchObject({ name: '', emailNotificationsEnabled: false });
+    expect(blankName.statusCode).toBe(400);
+    expect((await prisma.user.findUniqueOrThrow({ where: { email } })).emailNotificationsEnabled).toBe(false);
+  });
+
   it('rejects a profile update with no field in it with 400', async () => {
     const { cookie, csrfToken } = await registerAndLogin('empty-patch@example.com');
 

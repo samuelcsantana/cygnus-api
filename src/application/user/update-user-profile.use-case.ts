@@ -50,19 +50,12 @@ export class UpdateUserProfileUseCase {
     const passwordHash =
       input.password !== undefined ? await this.passwordHasher.hash(input.password) : existingUser.passwordHash;
 
-    const updatedUser = User.create({
-      id: existingUser.id,
-      email: input.email ?? existingUser.email,
+    const updatedUser = existingUser.withProfile({
+      name: input.name,
+      email: input.email,
       passwordHash,
-      name: input.name ?? existingUser.name,
-      avatarUrl: input.avatarUrl !== undefined ? input.avatarUrl : existingUser.avatarUrl,
-      emailNotificationsEnabled: input.emailNotificationsEnabled ?? existingUser.emailNotificationsEnabled,
-      createdAt: existingUser.createdAt,
-      // Carried over explicitly: rebuilding the entity without it would reset the counter to zero
-      // and quietly bring every session a password reset had just killed back to life.
-      sessionVersion: existingUser.sessionVersion,
-      // The repository never updates the expiry, so this only keeps the returned entity truthful.
-      demoExpiresAt: existingUser.demoExpiresAt,
+      avatarUrl: input.avatarUrl,
+      emailNotificationsEnabled: input.emailNotificationsEnabled,
     });
 
     await this.userRepository.save(updatedUser);

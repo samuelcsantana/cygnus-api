@@ -77,6 +77,44 @@ export class User {
     });
   }
 
+  /**
+   * The same account with a profile edit applied. Only what changes is checked: a new name must not
+   * be blank and a new address must be an e-mail. An account opened by a sign-in code before its
+   * owner gave a name (`createUnnamed`) can therefore still change its photo or its e-mail
+   * preferences; rebuilding it through `create` re-checked the stored empty name and refused them.
+   *
+   * The session version and the demo expiry are carried over: rebuilding the entity without the
+   * first would bring back every session a password reset had ended, and the repository never
+   * updates the second, so keeping it only keeps the returned entity truthful.
+   */
+  withProfile(changes: {
+    name?: string;
+    email?: string;
+    passwordHash?: string;
+    avatarUrl?: string | null;
+    emailNotificationsEnabled?: boolean;
+  }): User {
+    let name = this.name;
+    if (changes.name !== undefined) {
+      name = changes.name.trim();
+      if (name.length === 0) {
+        throw new InvalidNameError();
+      }
+    }
+
+    return new User({
+      id: this.id,
+      email: changes.email !== undefined ? Email.create(changes.email).toString() : this.email,
+      passwordHash: changes.passwordHash ?? this.passwordHash,
+      avatarUrl: changes.avatarUrl !== undefined ? changes.avatarUrl : this.avatarUrl,
+      name,
+      emailNotificationsEnabled: changes.emailNotificationsEnabled ?? this.emailNotificationsEnabled,
+      createdAt: this.createdAt,
+      sessionVersion: this.sessionVersion,
+      demoExpiresAt: this.demoExpiresAt,
+    });
+  }
+
   /** True once a demo account has outlived its 24 hours, even if the sweep has not reached it yet. */
   isExpiredDemoAt(now: Date): boolean {
     return this.demoExpiresAt !== null && this.demoExpiresAt.getTime() <= now.getTime();
