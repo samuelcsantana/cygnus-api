@@ -1,5 +1,4 @@
 import { logger } from '../../shared/logging/logger';
-import { User } from '../../domain/user/user';
 import { UserRepository } from './user-repository';
 import { PasswordHasher } from './password-hasher';
 import { TokenService } from './token-service';
@@ -45,26 +44,12 @@ export class ResetPasswordUseCase {
       throw new InvalidVerificationCodeError();
     }
 
-    const passwordHash = await this.passwordHasher.hash(input.password);
-    const sessionVersion = user.sessionVersion + 1;
-
-    await this.userRepository.save(
-      User.create({
-        id: user.id,
-        email: user.email,
-        passwordHash,
-        name: user.name,
-        avatarUrl: user.avatarUrl,
-        emailNotificationsEnabled: user.emailNotificationsEnabled,
-        createdAt: user.createdAt,
-        sessionVersion,
-        demoExpiresAt: user.demoExpiresAt,
-      }),
-    );
+    const updated = user.withResetPassword(await this.passwordHasher.hash(input.password));
+    await this.userRepository.save(updated);
 
     // Minted at the *new* version, so the session this request hands back is the only one that
     // survives its own invalidation. Every refresh token still out there carries the old number.
-    const tokens = this.tokenService.generateTokenPair(user.id, sessionVersion);
+    const tokens = this.tokenService.generateTokenPair(user.id, updated.sessionVersion);
 
     logger.info({ userId: user.id }, 'auth.password_reset_succeeded');
 
