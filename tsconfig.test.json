@@ -1,0 +1,14 @@
+{
+  // Typechecks the tests together with the code they test. tsconfig.json emits src/ only and
+  // excludes tests/, and Vitest strips types without checking them. ESNext + bundler resolution
+  // because that is how Vitest loads the specs (top-level await included); nothing is emitted.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler"
+  },
+  "include": ["src", "tests", "prisma/vaccine-catalog-seed-data.ts", "vitest.config.mts"],
+  "exclude": ["node_modules", "dist"]
+}

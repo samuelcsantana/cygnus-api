@@ -32,11 +32,18 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate
 
-      # `build` is plain `tsc`, so this doubles as the typecheck — there is no
-      # separate `typecheck` script to run. No lint step yet either: the repo
-      # has no ESLint setup, and adding one belongs in its own change.
+      # `build` is plain `tsc` over src/. No lint step yet: the repo has no
+      # ESLint setup, and adding one belongs in its own change.
       - name: Build
         run: npm run build
+
+      # The build's tsconfig excludes tests/, and Vitest strips types without
+      # checking them, so a spec could fall behind the code it tests and still
+      # pass. Ninety-nine such errors had piled up before this step existed,
+      # among them specs building use cases with a dependency missing and a
+      # "completed" appointment that was in fact scheduled.
+      - name: Typecheck the tests
+        run: npm run typecheck
 
       # openapi.json is committed so the frontend can read the contract without
       # running this project — swagger-ui is not registered in production, so
