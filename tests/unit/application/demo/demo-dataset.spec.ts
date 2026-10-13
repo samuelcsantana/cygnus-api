@@ -33,6 +33,7 @@ describe.each(NOWS)('buildDemoDataset at %s', (iso) => {
   const today = startOfUtcDay(now);
   const dataset = buildDemoDataset({ now, passwordHash: 'hash', vaccines: catalog });
   const [helena, theo] = dataset.babies;
+  if (!helena || !theo) throw new Error('The demo family has two children');
 
   it('belongs to a demo account that ends 24 hours later', () => {
     expect(dataset.user.isDemo).toBe(true);
@@ -112,7 +113,7 @@ describe('buildDemoDataset', () => {
 
     expect(first.user.id).not.toBe(second.user.id);
     expect(first.user.email).not.toBe(second.user.email);
-    expect(first.babies[0].id).not.toBe(second.babies[0].id);
+    expect(first.babies[0]?.id).not.toBe(second.babies[0]?.id);
   });
 
   it('still works with an empty catalog: the family simply has no vaccine records', () => {

@@ -56,9 +56,9 @@ describe('GenerateReminderNotificationsUseCase — vaccines', () => {
 
     expect(result.createdCount).toBe(1);
     expect(notificationRepository.save).toHaveBeenCalledTimes(1);
-    const savedNotification = vi.mocked(notificationRepository.save).mock.calls[0][0];
-    expect(savedNotification.type).toBe('VACCINE_DELAYED');
-    expect(savedNotification.referenceId).toBe(vaccine.id);
+    const savedNotification = vi.mocked(notificationRepository.save).mock.calls[0]?.[0];
+    expect(savedNotification?.type).toBe('VACCINE_DELAYED');
+    expect(savedNotification?.referenceId).toBe(vaccine.id);
   });
 
   it('skips a vaccine that has already been applied', async () => {
@@ -170,9 +170,9 @@ describe('GenerateReminderNotificationsUseCase — appointments', () => {
     const result = await useCase.execute(referenceDate);
 
     expect(result.createdCount).toBe(1);
-    const savedNotification = vi.mocked(notificationRepository.save).mock.calls[0][0];
-    expect(savedNotification.type).toBe('APPOINTMENT_UPCOMING');
-    expect(savedNotification.referenceId).toBe(appointment.id);
+    const savedNotification = vi.mocked(notificationRepository.save).mock.calls[0]?.[0];
+    expect(savedNotification?.type).toBe('APPOINTMENT_UPCOMING');
+    expect(savedNotification?.referenceId).toBe(appointment.id);
   });
 
   // The sweep runs at every boot and again each morning, and BullMQ retries it after a failure:
@@ -223,6 +223,10 @@ describe('GenerateReminderNotificationsUseCase — appointments', () => {
       babyId: baby.id,
       scheduledAt: new Date('2024-06-02T00:00:00.000Z'),
       doctorName: 'Dr. Ana Souza',
+      specialty: null,
+      specialistId: null,
+      weightGrams: null,
+      heightMillimeters: null,
       location: null,
       reason: null,
       notes: null,

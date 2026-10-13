@@ -66,9 +66,9 @@ describe('GetBabyVaccineScheduleUseCase', () => {
     });
 
     const item = schedule.groups.flatMap((group) => group.items)[0];
-    expect(item.status).toBe('APPLIED');
-    expect(item.applicationDate).toEqual(new Date('2024-01-02T00:00:00.000Z'));
-    expect(item.notes).toBe('Applied at the maternity ward');
+    expect(item?.status).toBe('APPLIED');
+    expect(item?.applicationDate).toEqual(new Date('2024-01-02T00:00:00.000Z'));
+    expect(item?.notes).toBe('Applied at the maternity ward');
   });
 
   it('groups the schedule by age in months, sorted ascending', async () => {

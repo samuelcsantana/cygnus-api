@@ -225,6 +225,7 @@ security claim.
 | --- | --- |
 | `npm run dev` | Development server with reload and Swagger UI |
 | `npm run build` | Typecheck and compile the app and the seed |
+| `npm run typecheck` | Typecheck the tests together with the code they test |
 | `npm start` | Run the compiled app |
 | `npm test` / `npm run test:coverage` | Unit and integration tests / with V8 coverage |
 | `npm run openapi:generate` | Regenerate `openapi.json` after a route or schema change |
@@ -233,10 +234,10 @@ security claim.
 | `npm run prisma:seed` | Seed the vaccine catalogue |
 | `npm run prisma:studio` | Open Prisma Studio |
 
-Three workflows run on every pull request: `ci.yml` (build, typecheck and the `openapi.json` drift
-check), `tests.yml` (the suites against PostgreSQL and Redis service containers, then the coverage
-report to GitHub Pages from `main`) and `security.yml` (`npm audit`, also every Monday). There is no
-lint script yet; the build is the type check.
+Three workflows run on every pull request: `ci.yml` (build, a typecheck of the tests together with
+the code, and the `openapi.json` drift check), `tests.yml` (the suites against PostgreSQL and Redis
+service containers, then the coverage report to GitHub Pages from `main`) and `security.yml`
+(`npm audit`, also every Monday). There is no lint script yet.
 
 ## Deployment and known limits
 
